@@ -6,7 +6,11 @@
 //
 
 #include "../shell-lib/sh.hpp"
+#include <iostream>
 
 int main(int argc, const char * argv[]) {
-   return 0;
+   sh::tee cout_and_cerr(std::cout, std::cerr);
+
+   cout_and_cerr << "Hola mundo!\n";
+   cout_and_cerr << "Hello world!\n" << "Hello Again!\n";
 }
