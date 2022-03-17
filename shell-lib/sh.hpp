@@ -1,0 +1,99 @@
+//
+//  Header.h
+//  shell-lib
+//
+//  Created by Kevin on 3/16/22.
+//
+
+#pragma once
+
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <filesystem>
+
+namespace sh {
+
+using path = std::filesystem::path;
+
+path pwd() noexcept {
+   std::error_code err;
+   return std::filesystem::current_path( err );
+}
+
+bool cd(const path& dest) noexcept {
+   std::error_code err;
+   std::filesystem::current_path( dest, err );
+   return !err;
+}
+
+bool mv(const path& src, const path& dest) noexcept {
+   std::error_code err;
+   std::filesystem::rename( src, dest, err );
+   return !err;
+}
+
+bool rm(const path& src, const bool recursive = true) noexcept {
+   std::error_code err;
+   if(recursive) {
+      std::filesystem::remove_all( src, err );
+      return !err;
+   } else {
+      return std::filesystem::remove( src, err );
+   }
+}
+
+bool cp(const path& src, const path& dest, const bool recursive = true) noexcept {
+   std::error_code err;
+   if(recursive) {
+      std::filesystem::copy( src, dest,
+                            std::filesystem::copy_options::recursive, err );
+      return !err;
+   } else {
+      return std::filesystem::copy_file( src, dest, err );
+   }
+}
+
+bool mkdir(const path& dir) noexcept {
+   std::error_code err;
+   return std::filesystem::create_directory( dir, err );
+}
+
+bool rmdir(const path& dir) noexcept {
+   if(!std::filesystem::is_directory(dir) || std::filesystem::is_empty(dir))
+      return false;
+   
+   std::error_code err;
+   return std::filesystem::remove( dir, err );
+}
+
+//template <typename container>
+//container<dir> ls() {
+//
+//}
+//
+//template <typename container>
+//container<process> ps() {
+//
+//}
+
+void echo(const char* input) noexcept {
+   std::puts( input );
+}
+
+//Should probably be type of ostream class
+//void tee(){
+//
+//}
+
+std::string env(const char* input) noexcept {
+   return std::getenv( input );
+}
+
+bool touch(const std::string& filepath) noexcept {
+   std::ofstream file( filepath, std::ios::out | std::ios::app );
+   return file.operator bool();
+}
+
+}
