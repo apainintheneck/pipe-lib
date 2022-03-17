@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <filesystem>
 
@@ -78,25 +79,36 @@ bool rmdir(const path& dir) noexcept {
 //
 //}
 
+bool cat(const std::string& filename, std::ostream& os = std::cout) {
+   std::ifstream file(filename);
+   
+   if(file.is_open()) {
+      os << file.rdbuf();
+      return true;
+   }
+   
+   return false;
+}
+
 void echo(const char* input) noexcept {
    std::puts( input );
 }
 
 class tee {
 public:
-   tee(std::ostream& out1, std::ostream& out2) : out1_(out1), out2_(out2) {}
+   tee(std::ostream& os1, std::ostream& os2) : os1_(os1), os2_(os2) {}
    
    template <typename T>
-   tee& operator<<(T value) {
-      out1_ << value;
-      out2_ << value;
+   tee& operator<<(const T& value) {
+      os1_ << value;
+      os2_ << value;
       
       return *this;
    }
    
 private:
-   std::ostream& out1_;
-   std::ostream& out2_;
+   std::ostream& os1_;
+   std::ostream& os2_;
 };
 
 std::string env(const char* input) noexcept {
@@ -105,16 +117,44 @@ std::string env(const char* input) noexcept {
 
 bool touch(const std::string& filepath) noexcept {
    std::ofstream file( filepath, std::ios::out | std::ios::app );
-   return file.operator bool();
+   return file.is_open();
 }
 
-//size_t wc(const std::istream& input) {
+std::string dirname(path filepath) {
+   filepath.remove_filename();
+   return filepath;
+}
+
+std::string basename(const path& filepath) {
+   return dirname(filepath);
+}
+
+bool uniq(const std::string& filepath, std::ostream& os = std::cout) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+   
+   std::string prev;
+   if(std::getline(file, prev))
+      os << prev << '\n';
+   
+   std::string buffer;
+   while(std::getline(file, buffer)) {
+      if(buffer == prev) continue;
+      
+      os << buffer << '\n';
+      prev = std::move(buffer);
+   }
+   
+   return true;
+}
+
+//size_t wc(std::istream& input) {
 //
 //}
 
 /*
  alias
- cat
  chmod
  chown
  cksum
@@ -124,8 +164,6 @@ bool touch(const std::string& filepath) noexcept {
  cut
  diff
  date
- dirname
- basename
  expr
  fold
  file
@@ -147,14 +185,12 @@ bool touch(const std::string& filepath) noexcept {
  test
  time
  tr
- tty
  tsort
  umask
  unalias
- uname
- uniq
  who
  zcat
+ symlink - don't know what it's called
  */
 
 }
