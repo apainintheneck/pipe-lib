@@ -75,16 +75,52 @@ bool rmdir( const path& dir ) noexcept {
    return std::filesystem::remove( dir, err );
 }
 
-//Should include recursive version. Maybe should include wrapper class version too so that it can go inside a ranged for loop.
-//template <typename container>
-//container<dir> ls() {
-//
-//}
-//
-//template <typename container>
-//container<process> ps() {
-//
-//}
+class ls {
+public:
+   using dir_iter = std::filesystem::directory_iterator;
+   
+   ls() = default;
+   ls(const path& directory_path) : dir_path_(directory_path) {
+      open();
+   }
+   ls(path&& directory_path) : dir_path_(std::move(directory_path)) {
+      open();
+   }
+   
+   bool open(const path& directory_path) {
+      dir_path_ = directory_path;
+      return open();
+   }
+   bool open(path&& directory_path) {
+      dir_path_ = std::move(directory_path);
+      return open();
+   }
+   
+   dir_iter begin() { return begin_; }
+   dir_iter end() { return end_; }
+   
+private:
+   bool open() {
+      std::error_code err;
+      dir_iter it(dir_path_, err);
+      
+      if(err) {
+         is_open_ = false;
+         dir_path_.clear();
+      } else {
+         is_open_ = true;
+         begin_ = it;
+      }
+         
+      return is_open_;
+   }
+   
+   dir_iter begin_;
+   dir_iter end_;
+   
+   path dir_path_;
+   bool is_open_;
+};
 
 bool cat(const std::string& filename, std::ostream& os = std::cout) {
    std::ifstream file(filename);
@@ -306,6 +342,7 @@ bool S(const path& file) noexcept {
  who
  zcat
  symlink - don't know what it's called
+ ps
  */
 
 } //namespace sh
