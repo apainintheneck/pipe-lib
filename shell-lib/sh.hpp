@@ -307,13 +307,44 @@ bool S(const path& file) noexcept {
 //
 //}
 
+std::string logname() {
+   return std::getenv("USER");
+}
+
+//Remember to benchmark this puts version. If it's not faster, delete it.
+bool head(const std::string& filepath, size_t count = 10) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+   
+   std::string buffer;
+   while(std::getline(file, buffer) && count) {
+      std::puts(buffer.c_str());
+      --count;
+   }
+   
+   return true;
+}
+
+bool head(const std::string& filepath, std::ostream& os, size_t count = 10) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+   
+   std::string buffer;
+   while(std::getline(file, buffer) && count) {
+      os << buffer << '\n';
+      --count;
+   }
+   
+   return true;
+}
+
 /*
- alias
  chown
  cksum
  cmp
  comm
- command
  cut
  diff
  date
@@ -322,10 +353,8 @@ bool S(const path& file) noexcept {
  find
  getopts
  grep
- head
  join
  kill
- logname
  make
  mkfifo
  more
@@ -333,13 +362,9 @@ bool S(const path& file) noexcept {
  read
  sed
  tail
- test
  time
  tr
- tsort
  umask
- unalias
- who
  zcat
  symlink - don't know what it's called
  ps
