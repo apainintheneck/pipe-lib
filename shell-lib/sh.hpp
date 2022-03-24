@@ -159,11 +159,11 @@ private:
 };
 
 std::string env(const char* input) noexcept {
-   return std::getenv( input );
+   return std::getenv(input);
 }
 
 bool touch(const std::string& filepath) noexcept {
-   std::ofstream file( filepath, std::ios::out | std::ios::app );
+   std::ofstream file(filepath, std::ios::out | std::ios::app);
    return file.is_open();
 }
 
@@ -303,6 +303,37 @@ bool head(const std::string& filepath, size_t count = 10, std::ostream& os = std
    return true;
 }
 
+void tail(std::istream& is, const size_t count = 10, std::ostream& os = std::cout) {
+   std::vector<std::string> lines;
+   lines.reserve(count);
+   
+   std::string buffer;
+   for(int i = 0; i < count && std::getline(is, buffer); ++i)
+      lines.push_back(buffer);
+   
+   size_t idx = 0;
+   for(; std::getline(is, buffer); ++idx)
+      lines[idx % count] = std::move(buffer);
+   
+   if(lines.size() < count){
+      for(const auto& line: lines)
+         os << line << '\n';
+   } else {
+      idx %= count;
+      for(size_t offset = 0; offset < count; ++offset)
+         os << lines[(idx + offset) % count] << '\n';
+   }
+}
+
+bool tail(const std::string& filepath, const size_t count = 10, std::ostream& os = std::cout) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+
+   tail(file, count, os);
+   return true;
+}
+
 /*
  chown
  cksum
@@ -324,7 +355,6 @@ bool head(const std::string& filepath, size_t count = 10, std::ostream& os = std
  paste
  read
  sed
- tail
  time
  tr
  umask
