@@ -7,11 +7,11 @@
 
 #pragma once
 
-#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <algorithm>
 #include <filesystem>
 #include <vector>
 
@@ -21,58 +21,58 @@ using path = std::filesystem::path;
 
 path pwd() noexcept {
    std::error_code err;
-   return std::filesystem::current_path( err );
+   return std::filesystem::current_path(err);
 }
 
 bool cd() noexcept {
    std::error_code err;
-   std::filesystem::current_path( std::getenv("HOME"), err );
+   std::filesystem::current_path(std::getenv("HOME"), err);
    return !err;
 }
 
 bool cd(const path& dest) noexcept {
    std::error_code err;
-   std::filesystem::current_path( dest, err );
+   std::filesystem::current_path(dest, err);
    return !err;
 }
 
-bool mv( const path& src, const path& dest ) noexcept {
+bool mv(const path& src, const path& dest) noexcept {
    std::error_code err;
-   std::filesystem::rename( src, dest, err );
+   std::filesystem::rename(src, dest, err);
    return !err;
 }
 
-bool rm( const path& src, const bool recursive = true ) noexcept {
+bool rm(const path& src, const bool recursive = false) noexcept {
    std::error_code err;
    if(recursive) {
-      std::filesystem::remove_all( src, err );
+      std::filesystem::remove_all(src, err);
       return !err;
    } else {
-      return std::filesystem::remove( src, err );
+      return std::filesystem::remove(src, err);
    }
 }
 
-bool cp( const path& src, const path& dest, const bool recursive = true ) noexcept {
+bool cp(const path& src, const path& dest, const bool recursive = false) noexcept {
    std::error_code err;
    if(recursive) {
-      std::filesystem::copy( src, dest, std::filesystem::copy_options::recursive, err );
+      std::filesystem::copy(src, dest, std::filesystem::copy_options::recursive, err);
       return !err;
    } else {
-      return std::filesystem::copy_file( src, dest, err );
+      return std::filesystem::copy_file(src, dest, err);
    }
 }
 
-bool mkdir( const path& dir ) noexcept {
+bool mkdir(const path& dir) noexcept {
    std::error_code err;
-   return std::filesystem::create_directory( dir, err );
+   return std::filesystem::create_directory(dir, err);
 }
 
-bool rmdir( const path& dir ) noexcept {
-   if( !std::filesystem::is_directory( dir ) || std::filesystem::is_empty( dir ) )
+bool rmdir(const path& dir) noexcept {
+   if(!std::filesystem::is_directory(dir) || std::filesystem::is_empty(dir))
       return false;
    
    std::error_code err;
-   return std::filesystem::remove( dir, err );
+   return std::filesystem::remove(dir, err);
 }
 
 class ls {
@@ -122,11 +122,15 @@ private:
    bool is_open_;
 };
 
+void cat(std::istream& is, std::ostream& os = std::cout) {
+   os << is.rdbuf();
+}
+
 bool cat(const std::string& filename, std::ostream& os = std::cout) {
    std::ifstream file(filename);
    
    if(file.is_open()) {
-      os << file.rdbuf();
+      cat(file, os);
       return true;
    }
    
@@ -174,80 +178,49 @@ std::string basename(path filepath) {
    return filepath;
 }
 
-//Remember to benchmark the puts version. If it's not faster, delete it.
-bool uniq(const std::string& filepath) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
-      return false;
-   
+void uniq(std::istream& is, std::ostream& os = std::cout) {
    std::string prev;
-   if(std::getline(file, prev))
-      std::puts(prev.c_str());
-   
-   std::string buffer;
-   while(std::getline(file, buffer)) {
-      if(buffer == prev) continue;
-      
-      std::puts(buffer.c_str());
-      prev = std::move(buffer);
-   }
-   
-   return true;
-}
-
-bool uniq(const std::string& filepath, std::ostream& os) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
-      return false;
-   
-   std::string prev;
-   if(std::getline(file, prev))
+   if(std::getline(is, prev))
       os << prev << '\n';
    
    std::string buffer;
-   while(std::getline(file, buffer)) {
+   while(std::getline(is, buffer)) {
       if(buffer == prev) continue;
       
       os << buffer << '\n';
       prev = std::move(buffer);
    }
-   
+}
+
+bool uniq(const std::string& filepath, std::ostream& os = std::cout) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+
+   uniq(file, os);
    return true;
 }
 
-//Remember to benchmark the puts version. If it's not faster, delete it.
 //Also, it might be worth exploring heap sort since you're getting one line at a time.
-bool sort(const std::string& filepath) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
-      return false;
-   
+void sort(std::istream& is, std::ostream& os = std::cout) {
    std::string buffer;
    std::vector<std::string> lines;
-   while(std::getline(file, buffer)) {
+   while(std::getline(is, buffer)) {
       lines.push_back(buffer);
    }
    
-   for(const auto& line: lines)
-      std::puts(line.c_str());
-   
-   return true;
-}
-
-bool sort(const std::string& filepath, std::ostream& os) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
-      return false;
-   
-   std::string buffer;
-   std::vector<std::string> lines;
-   while(std::getline(file, buffer)) {
-      lines.push_back(buffer);
-   }
+   std::sort(lines.begin(), lines.end());
    
    for(const auto& line: lines)
       os << line;
-   
+}
+
+bool sort(const std::string& filepath, std::ostream& os = std::cout) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+
+   sort(file, os);
    return true;
 }
 
@@ -311,32 +284,22 @@ std::string logname() {
    return std::getenv("USER");
 }
 
-//Remember to benchmark this puts version. If it's not faster, delete it.
-bool head(const std::string& filepath, size_t count = 10) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
-      return false;
-   
+bool head(std::istream& is, size_t count = 10, std::ostream& os = std::cout) {
    std::string buffer;
-   while(std::getline(file, buffer) && count) {
-      std::puts(buffer.c_str());
+   while(std::getline(is, buffer) && count) {
+      os << buffer << '\n';
       --count;
    }
    
    return true;
 }
 
-bool head(const std::string& filepath, std::ostream& os, size_t count = 10) {
+bool head(const std::string& filepath, size_t count = 10, std::ostream& os = std::cout) {
    std::ifstream file(filepath);
    if(!file.is_open())
       return false;
-   
-   std::string buffer;
-   while(std::getline(file, buffer) && count) {
-      os << buffer << '\n';
-      --count;
-   }
-   
+
+   head(file, count, os);
    return true;
 }
 
@@ -366,8 +329,8 @@ bool head(const std::string& filepath, std::ostream& os, size_t count = 10) {
  tr
  umask
  zcat
- symlink - don't know what it's called
  ps
+ du
  */
 
 } //namespace sh
