@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -19,9 +18,24 @@ namespace sh {
 
 using path = std::filesystem::path;
 
-path pwd() noexcept {
-   std::error_code err;
-   return std::filesystem::current_path(err);
+path basename(path filepath) {
+   filepath.remove_filename();
+   return filepath;
+}
+
+void cat(std::istream& is, std::ostream& os = std::cout) {
+   os << is.rdbuf();
+}
+
+bool cat(const std::string& filename, std::ostream& os = std::cout) {
+   std::ifstream file(filename);
+   
+   if(file.is_open()) {
+      cat(file, os);
+      return true;
+   }
+   
+   return false;
 }
 
 bool cd() noexcept {
@@ -36,20 +50,11 @@ bool cd(const path& dest) noexcept {
    return !err;
 }
 
-bool mv(const path& src, const path& dest) noexcept {
+//Add a more intuitive way to add arguments
+bool chmod(const path& filepath, const std::filesystem::perms permissions) noexcept {
    std::error_code err;
-   std::filesystem::rename(src, dest, err);
+   std::filesystem::permissions(filepath, permissions, err);
    return !err;
-}
-
-bool rm(const path& src, const bool recursive = false) noexcept {
-   std::error_code err;
-   if(recursive) {
-      std::filesystem::remove_all(src, err);
-      return !err;
-   } else {
-      return std::filesystem::remove(src, err);
-   }
 }
 
 bool cp(const path& src, const path& dest, const bool recursive = false) noexcept {
@@ -62,17 +67,43 @@ bool cp(const path& src, const path& dest, const bool recursive = false) noexcep
    }
 }
 
-bool mkdir(const path& dir) noexcept {
-   std::error_code err;
-   return std::filesystem::create_directory(dir, err);
+//It'd be great to find a better way to alias dirname and basename since they're identical.
+path dirname(path filepath) {
+   filepath.remove_filename();
+   return filepath;
 }
 
-bool rmdir(const path& dir) noexcept {
-   if(!std::filesystem::is_directory(dir) || std::filesystem::is_empty(dir))
-      return false;
-   
+void echo(const char* input, std::ostream& os = std::cout) noexcept {
+   os << input;
+}
+
+std::filesystem::file_type file(const path& filepath) noexcept {
    std::error_code err;
-   return std::filesystem::remove(dir, err);
+   const auto status = std::filesystem::status(filepath, err);
+   return status.type();
+}
+
+bool head(std::istream& is, size_t count = 10, std::ostream& os = std::cout) {
+   std::string buffer;
+   while(std::getline(is, buffer) && count) {
+      os << buffer << '\n';
+      --count;
+   }
+   
+   return true;
+}
+
+bool head(const std::string& filepath, size_t count = 10, std::ostream& os = std::cout) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+
+   head(file, count, os);
+   return true;
+}
+
+std::string logname() {
+   return std::getenv("USER");
 }
 
 class ls {
@@ -122,83 +153,38 @@ private:
    bool is_open_;
 };
 
-void cat(std::istream& is, std::ostream& os = std::cout) {
-   os << is.rdbuf();
+bool mv(const path& src, const path& dest) noexcept {
+   std::error_code err;
+   std::filesystem::rename(src, dest, err);
+   return !err;
 }
 
-bool cat(const std::string& filename, std::ostream& os = std::cout) {
-   std::ifstream file(filename);
-   
-   if(file.is_open()) {
-      cat(file, os);
-      return true;
-   }
-   
-   return false;
+bool mkdir(const path& dir) noexcept {
+   std::error_code err;
+   return std::filesystem::create_directory(dir, err);
 }
 
-bool  echo(const char* input) noexcept {
-   return std::puts(input) >= 0;
+path pwd() noexcept {
+   std::error_code err;
+   return std::filesystem::current_path(err);
 }
 
-class tee {
-public:
-   tee(std::ostream& os1, std::ostream& os2) : os1_(os1), os2_(os2) {}
-   
-   template <typename T>
-   tee& operator<<(const T& value) {
-      os1_ << value;
-      os2_ << value;
-      
-      return *this;
-   }
-   
-private:
-   std::ostream& os1_;
-   std::ostream& os2_;
-};
-
-std::string env(const char* input) noexcept {
-   return std::getenv(input);
-}
-
-bool touch(const std::string& filepath) noexcept {
-   std::ofstream file(filepath, std::ios::out | std::ios::app);
-   return file.is_open();
-}
-
-//It'd be great to find a better way to alias dirname and basename since they're identical.
-std::string dirname(path filepath) {
-   filepath.remove_filename();
-   return filepath;
-}
-
-std::string basename(path filepath) {
-   filepath.remove_filename();
-   return filepath;
-}
-
-void uniq(std::istream& is, std::ostream& os = std::cout) {
-   std::string prev;
-   if(std::getline(is, prev))
-      os << prev << '\n';
-   
-   std::string buffer;
-   while(std::getline(is, buffer)) {
-      if(buffer == prev) continue;
-      
-      os << buffer << '\n';
-      prev = std::move(buffer);
+bool rm(const path& src, const bool recursive = false) noexcept {
+   std::error_code err;
+   if(recursive) {
+      std::filesystem::remove_all(src, err);
+      return !err;
+   } else {
+      return std::filesystem::remove(src, err);
    }
 }
 
-bool uniq(const std::string& filepath, std::ostream& os = std::cout) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
+bool rmdir(const path& dir) noexcept {
+   if(!std::filesystem::is_directory(dir) || std::filesystem::is_empty(dir))
       return false;
-
-   uniq(file, os);
-   return true;
+   
+   std::error_code err;
+   return std::filesystem::remove(dir, err);
 }
 
 //Also, it might be worth exploring heap sort since you're getting one line at a time.
@@ -224,17 +210,56 @@ bool sort(const std::string& filepath, std::ostream& os = std::cout) {
    return true;
 }
 
-std::filesystem::file_type file(const path& filepath) noexcept {
-   std::error_code err;
-   const auto status = std::filesystem::status(filepath, err);
-   return status.type();
+void tail(std::istream& is, const size_t count = 10, std::ostream& os = std::cout) {
+   std::vector<std::string> lines;
+   lines.reserve(count);
+   
+   std::string buffer;
+   for(int i = 0; i < count && std::getline(is, buffer); ++i)
+      lines.push_back(buffer);
+   
+   size_t idx = 0;
+   for(; std::getline(is, buffer); ++idx)
+      lines[idx % count] = std::move(buffer);
+   
+   if(lines.size() < count){
+      for(const auto& line: lines)
+         os << line << '\n';
+   } else {
+      idx %= count;
+      for(size_t offset = 0; offset < count; ++offset)
+         os << lines[(idx + offset) % count] << '\n';
+   }
 }
 
-//Add a more intuitive way to add arguments
-bool chmod(const path& filepath, const std::filesystem::perms permissions) noexcept {
-   std::error_code err;
-   std::filesystem::permissions(filepath, permissions, err);
-   return !err;
+bool tail(const std::string& filepath, const size_t count = 10, std::ostream& os = std::cout) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+
+   tail(file, count, os);
+   return true;
+}
+
+class tee {
+public:
+   tee(std::ostream& os1, std::ostream& os2) : os1_(os1), os2_(os2) {}
+   
+   template <typename T>
+   tee& operator<<(const T& value) {
+      os1_ << value;
+      os2_ << value;
+      
+      return *this;
+   }
+   
+private:
+   std::ostream& os1_;
+   std::ostream& os2_;
+};
+
+std::string env(const char* input) noexcept {
+   return std::getenv(input);
 }
 
 namespace test {
@@ -274,67 +299,38 @@ bool S(const path& file) noexcept {
    return std::filesystem::is_socket(file, err) && !err;
 }
 
+bool touch(const std::string& filepath) noexcept {
+   std::ofstream file(filepath, std::ios::out | std::ios::app);
+   return file.is_open();
+}
+
+void uniq(std::istream& is, std::ostream& os = std::cout) {
+   std::string prev;
+   if(std::getline(is, prev))
+      os << prev << '\n';
+   
+   std::string buffer;
+   while(std::getline(is, buffer)) {
+      if(buffer == prev) continue;
+      
+      os << buffer << '\n';
+      prev = std::move(buffer);
+   }
+}
+
+bool uniq(const std::string& filepath, std::ostream& os = std::cout) {
+   std::ifstream file(filepath);
+   if(!file.is_open())
+      return false;
+
+   uniq(file, os);
+   return true;
+}
+
 } //namespace test
 
-//size_t wc(std::istream& input) {
-//
-//}
-
-std::string logname() {
-   return std::getenv("USER");
-}
-
-bool head(std::istream& is, size_t count = 10, std::ostream& os = std::cout) {
-   std::string buffer;
-   while(std::getline(is, buffer) && count) {
-      os << buffer << '\n';
-      --count;
-   }
-   
-   return true;
-}
-
-bool head(const std::string& filepath, size_t count = 10, std::ostream& os = std::cout) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
-      return false;
-
-   head(file, count, os);
-   return true;
-}
-
-void tail(std::istream& is, const size_t count = 10, std::ostream& os = std::cout) {
-   std::vector<std::string> lines;
-   lines.reserve(count);
-   
-   std::string buffer;
-   for(int i = 0; i < count && std::getline(is, buffer); ++i)
-      lines.push_back(buffer);
-   
-   size_t idx = 0;
-   for(; std::getline(is, buffer); ++idx)
-      lines[idx % count] = std::move(buffer);
-   
-   if(lines.size() < count){
-      for(const auto& line: lines)
-         os << line << '\n';
-   } else {
-      idx %= count;
-      for(size_t offset = 0; offset < count; ++offset)
-         os << lines[(idx + offset) % count] << '\n';
-   }
-}
-
-bool tail(const std::string& filepath, const size_t count = 10, std::ostream& os = std::cout) {
-   std::ifstream file(filepath);
-   if(!file.is_open())
-      return false;
-
-   tail(file, count, os);
-   return true;
-}
-
 /*
+ wc
  chown
  cksum
  cmp
@@ -361,6 +357,9 @@ bool tail(const std::string& filepath, const size_t count = 10, std::ostream& os
  zcat
  ps
  du
+ pushd
+ popd
+ dirs
  */
 
 } //namespace sh
