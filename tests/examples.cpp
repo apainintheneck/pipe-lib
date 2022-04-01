@@ -5,7 +5,8 @@
 //  Created by Kevin on 3/16/22.
 //
 
-#include "../shell-lib/sh.hpp"
+#include "../shell-lib/streams.hpp"
+#include "../shell-lib/system.hpp"
 #include <iostream>
 
 int main(int argc, const char * argv[]) {
