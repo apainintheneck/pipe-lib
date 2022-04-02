@@ -13,17 +13,115 @@
 #include <vector>
 #include <algorithm>
 
+namespace opt {
+
+class _default {};
+
+class a {};
+class n {};
+
+}
+
 namespace sh {
+
+class File {
+public:
+   File(const std::string& filename) : _filename(filename) {}
+   File(std::string&& filename) : _filename(std::move(filename)) {}
+   ~File() = default;
+   
+   friend class Pipe;
+   
+private:
+   const std::string _filename;
+};
+
+template <typename option = opt::_default>
+class Tee {
+public:
+   template <typename... Filenames>
+   Tee(Filenames... files) : _out(std::cout) {
+      (add_ofstream(files), ...);
+   }
+   template <typename... Filenames>
+   Tee(std::ostream& os, Filenames... files) : _out(os) {
+      (add_ofstream(files), ...);
+   }
+   ~Tee() = default;
+   
+   friend class Pipe;
+   
+private:
+   //
+   // Operators
+   //
+   void operator<<(const std::string& str) {
+      _out << str;
+      
+      for(auto& outfile : _outfiles)
+         outfile << str;
+   }
+   
+   void operator<<(const char ch) {
+      _out << ch;
+      
+      for(auto& outfile : _outfiles)
+         outfile << ch;
+   }
+
+   //
+   // Init
+   //
+   void add_ofstream(const std::string& file) {
+      if constexpr(std::is_same_v<option, opt::_default>) {
+         std::ofstream outfile(file);
+         if(outfile.is_open())
+            _outfiles.push_back(std::move(outfile));
+      } else if constexpr(std::is_same_v<option, opt::a>) {
+         std::ofstream outfile(file, std::ios::out | std::ios::app);
+         if(outfile.is_open())
+            _outfiles.push_back(std::move(outfile));
+      }
+   }
+   
+   //
+   // Variables
+   //
+   std::ostream& _out;
+   std::vector<std::ofstream> _outfiles;
+};
 
 class Pipe {
 public:
-   //
-   // Comstructors
-   //
    Pipe(std::istream& input) {
       init(input);
    }
    ~Pipe() = default;
+   
+   //
+   // Operators
+   //
+   void operator>(const File& file) {
+      std::ofstream outfile(file._filename);
+      pipe(outfile);
+   }
+   
+   void operator>>(const File& file) {
+      std::ofstream outfile(file._filename, std::ios::out | std::ios::app);
+      pipe(outfile);
+   }
+   
+   void operator|(std::ostream& os) {
+      pipe(os);
+   }
+   
+   template<typename tee_option>
+   void operator|(Tee<tee_option>& tee) {
+      for(const auto& line : lines) {
+         tee << line;
+         tee << '\n';
+      }
+   }
    
    //
    // Manipulation
@@ -70,29 +168,17 @@ public:
    //
    // Output
    //
-   void cat(const std::string& filepath, const bool append = false) {
-      auto outfile = append
-         ? std::ofstream(filepath, std::ios::out | std::ios::app)
-         : std::ofstream(filepath);
-      
-      pipe(outfile);
-   }
-   
    void pipe(std::ostream& os) {
       for(const auto& line : lines)
          os << line << '\n';
    }
    
-   void tee(std::ostream& os1, std::ostream& os2) {
-      for(const auto& line : lines) {
-         os1 << line << '\n';
-         os2 << line << '\n';
-      }
-   }
-   
 protected:
    Pipe() = default;
    
+   //
+   // Init
+   //
    void init(std::istream& in) {
       std::string buffer;
       while(std::getline(in, buffer)) {
@@ -101,11 +187,26 @@ protected:
    }
 
 private:
+   //
+   // Variables
+   //
    std::vector<std::string> lines;
 };
 
-class Cat : Pipe {
-   explicit Cat(std::string filepath) {
+template <typename option = opt::_default>
+class Cat : public Pipe {
+public:
+   template <typename... Filenames>
+   Cat(Filenames... files) {
+      (append_file_contents(files), ...);
+   }
+   ~Cat() = default;
+
+private:
+   //
+   // Init
+   //
+   void append_file_contents(std::string filepath) {
       std::ifstream infile(filepath);
       
       if(infile.is_open()) {
@@ -114,10 +215,29 @@ class Cat : Pipe {
    }
 };
 
-class Echo : Pipe {
-   explicit Echo(std::string data) {
-      std::istringstream instring(data);
+template <typename option = opt::_default>
+class Echo : public Pipe {
+public:
+   template <typename... Strings>
+   Echo(Strings... strings) {
+      std::string joined_strings;
+      if constexpr(std::is_same_v<option, opt::_default>) {
+         joined_strings = (add_newline(strings) + ...);
+      } if constexpr(std::is_same_v<option, opt::n>) {
+         joined_strings = (std::string(strings) + ...);
+      }
+      
+      std::istringstream instring(joined_strings);
       init(instring);
+   }
+   ~Echo() = default;
+   
+private:
+   //
+   // Init
+   //
+   std::string add_newline(const std::string& str) {
+      return str + "\n";
    }
 };
 
