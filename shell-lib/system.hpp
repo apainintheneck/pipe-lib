@@ -55,6 +55,10 @@ path dirname(path filepath) {
    return filepath;
 }
 
+std::string env(const char* input) noexcept {
+   return std::getenv(input);
+}
+
 std::filesystem::file_type file(const path& filepath) noexcept {
    std::error_code err;
    const auto status = std::filesystem::status(filepath, err);
