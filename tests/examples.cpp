@@ -12,5 +12,5 @@
 int main(int argc, const char * argv[]) {
    std::istringstream in("hellow");
    auto tee = sh::Tee<opt::a>(std::cout, "example.txt", "example2.txt");
-   sh::Pipe(in).head() | tee;
+   sh::Pipe(in).head().wc<opt::l>() | tee;
 }
