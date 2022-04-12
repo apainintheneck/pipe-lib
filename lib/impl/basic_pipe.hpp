@@ -18,40 +18,43 @@ class BasicPipe {
 public:
    ~BasicPipe() = default;
    
-   //
-   // Operators
-   //
-   void operator>(const File& file) {
-      std::ofstream outfile(file._filename);
-      pipe_to(outfile);
-   }
+   /*
+    
+    Output Operators
+    
+    */
    
-   void operator>>(const File& file) {
-      std::ofstream outfile(file._filename, std::ios::out | std::ios::app);
-      pipe_to(outfile);
-   }
-   
-   void operator|(std::ostream& os) {
-      pipe_to(os);
-   }
-   
+   // Overwrites File with piped lines.
+   void operator>(const File& file);
+   // Appends piped lines to File.
+   void operator>>(const File& file);
+   // Append to ostream.
+   void operator|(std::ostream& os);
+   // Pipe to Tee (append or write options specified in Tee class).
    template<typename tee_option>
-   void operator|(Tee<tee_option>& tee) {
-      for(const auto& line : lines) {
-         tee << line;
-         tee << '\n';
-      }
-   }
+   void operator|(Tee<tee_option>& tee);
+   
+   /*
+    
+    Pipe Filters
+    
+    */
    
    //
-   // Filters
+   // Head
    //
-   BasicPipe head(const int count = 10) {
-      if(lines.size() > count)
-         lines.resize(count);
-
-      return *this;
-   }
+   
+   // Defaults to retaining the top 10 lines.
+   BasicPipe head();
+   // Used for error checking options.
+   template <typename option>
+   BasicPipe head(const size_t count);
+   // Option::n - Retains the top x lines.
+   template <>
+   BasicPipe head<opt::n>(const size_t count);
+   // Option::c - Retains the top x bytes.
+   template <>
+   BasicPipe head<opt::c>(const size_t count);
    
    BasicPipe sort() {
       std::sort(lines.begin(), lines.end());
@@ -220,5 +223,93 @@ private:
    //
    std::vector<std::string> lines;
 };
+
+/*
+ 
+ Output Operators
+ 
+ */
+
+void BasicPipe::operator>(const File& file) {
+   std::ofstream outfile(file._filename);
+   pipe_to(outfile);
+}
+
+void BasicPipe::operator>>(const File& file) {
+   std::ofstream outfile(file._filename, std::ios::out | std::ios::app);
+   pipe_to(outfile);
+}
+
+void BasicPipe::operator|(std::ostream& os) {
+   pipe_to(os);
+}
+
+template<typename tee_option>
+void BasicPipe::operator|(Tee<tee_option>& tee) {
+   for(const auto& line : lines) {
+      tee << line;
+      tee << '\n';
+   }
+}
+
+/*
+ 
+ Pipe Filters
+ 
+ */
+
+//
+// Head
+//
+BasicPipe BasicPipe::head() {
+   const uint8_t count = 10;
+   if(lines.size() > count)
+      lines.resize(count);
+
+   return *this;
+}
+
+template <typename option>
+BasicPipe BasicPipe::head(const size_t count) {
+   using AllowedOptions = opt::list<opt::n, opt::c>;
+   static_assert(AllowedOptions::contains<option>(), "Unknown option given to BasicPipe.head()");
+}
+
+template <>
+BasicPipe BasicPipe::head<opt::n>(const size_t count) {
+   if(lines.size() > count)
+      lines.resize(count);
+
+   return *this;
+}
+
+template <>
+BasicPipe BasicPipe::head<opt::c>(const size_t count) {
+   if(count == 0) {
+      lines.clear();
+      return *this;
+   }
+   
+   size_t line_count = 0;
+   size_t char_count = 0;
+   
+   for(auto& line : lines) {
+      ++line_count;
+      char_count += line.size();
+      if(char_count >= count) {
+         auto extra_chars = char_count - count;
+         
+         if(extra_chars != 0)
+            line.resize(line.size() - extra_chars);
+         
+         break;
+      }
+   }
+   
+   if(lines.size() > line_count)
+      lines.resize(line_count);
+
+   return *this;
+}
 
 } // namespace sh::detail
