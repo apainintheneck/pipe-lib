@@ -1,12 +1,7 @@
 //
-//  main.cpp
-//  shell-lib
+// Examples for pipe-lib
 //
-//  Created by Kevin on 3/16/22.
-//
-
-#include "../shell-lib/pipe.hpp"
-#include "../shell-lib/system.hpp"
+#include "../lib/pipe-lib.hpp"
 #include <iostream>
 
 int main(int argc, const char * argv[]) {
