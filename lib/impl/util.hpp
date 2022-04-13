@@ -9,6 +9,17 @@
 //
 namespace sh::detail {
 
+template <typename iter>
+iter find_next_diff(iter begin, iter end) {
+   auto base_case = begin;
+   
+   do {
+      ++begin;
+   } while(begin != end && *begin == *base_case);
+   
+   return begin;
+}
+
 std::string pad_left(std::string&& str, const size_t width) {
    return str.size() < width
       ? std::string(width - str.size(), ' ') + str

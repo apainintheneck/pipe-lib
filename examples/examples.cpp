@@ -5,6 +5,6 @@
 #include <iostream>
 
 int main(int argc, const char * argv[]) {
-   std::istringstream in("hello\nhello\nhello\nworld");
-   sh::Pipe(in).uniq<opt::u>() | std::cout;
+   std::istringstream in("hello\nhello\nhello\nworld\nworld");
+   sh::Pipe(in).uniq<opt::c>() | std::cout;
 }

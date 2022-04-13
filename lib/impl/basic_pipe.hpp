@@ -246,25 +246,26 @@ BasicPipe BasicPipe::uniq() {
 
 template <>
 BasicPipe BasicPipe::uniq<opt::c>() {
-   if(lines.empty())
+   if(lines.empty()) {
       return *this;
-   
-   int freq = 1;
-   auto prev = lines.begin();
-   auto curr = prev + 1;
-   
-   while(curr != lines.end()) {
-      if(*prev == *curr) {
-         curr = lines.erase(curr);
-         prev = curr - 1;
-      } else {
-         prev->insert(0, pad_left(freq, 4));
-         ++prev;
-         ++curr;
-         freq = 1;
-      }
    }
-   prev->insert(0, pad_left(freq, 4) + " ");
+   
+   auto last = lines.begin();
+   auto curr = last;
+   while(curr != lines.end()) {
+      auto next = detail::find_next_diff(curr, lines.end());
+      auto freq = std::distance(curr, next);
+      
+      curr->insert(0, pad_left(freq, 4) + " ");
+      
+      if(curr != last)
+         std::iter_swap(curr, last);
+      ++last;
+      
+      curr = next;
+   }
+   
+   lines.erase(last, lines.end());
    
    return *this;
 }
@@ -273,39 +274,24 @@ template <>
 BasicPipe BasicPipe::uniq<opt::d>() {
    if(lines.empty()) {
       return *this;
-   } else if(lines.size() == 1) {
-      lines.clear();
-      return *this;
    }
    
    auto last = lines.begin();
-   auto prev = lines.begin();
-   auto curr = prev + 1;
+   auto curr = last;
    while(curr != lines.end()) {
-      int freq = 1;
-      while(curr != lines.end() && *prev == *curr) {
-         ++prev;
-         ++curr;
-         ++freq;
-      }
+      auto next = detail::find_next_diff(curr, lines.end());
+      auto freq = std::distance(curr, next);
       
       if(freq > 1) {
-         std::iter_swap(last, prev);
+         if(curr != last)
+            std::iter_swap(curr, last);
+         
          ++last;
-         
-         if(curr == lines.end())
-            break;
-         
-         ++prev;
-         ++curr;
       }
+      curr = next;
    }
    
-   if(last == lines.begin()) {
-      lines.clear();
-   } else {
-      lines.erase(last, lines.end());
-   }
+   lines.erase(last, lines.end());
    
    return *this;
 }
@@ -319,11 +305,7 @@ BasicPipe BasicPipe::uniq<opt::u>() {
    auto last = lines.begin();
    auto curr = last;
    while(curr != lines.end()) {
-      auto next = curr + 1;
-      while(next != lines.end() && *next == *curr) {
-         ++next;
-      }
-      
+      auto next = detail::find_next_diff(curr, lines.end());
       auto freq = std::distance(curr, next);
       
       if(freq == 1) {
