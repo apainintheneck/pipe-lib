@@ -6,7 +6,7 @@
 #include <algorithm>
 
 #include "option.hpp"
-#include "util.hpp"
+#include "detail/util.hpp"
 #include "output.hpp"
 
 //

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "pipe.hpp"
 
 namespace pipe {

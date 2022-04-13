@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 //
 // Metaprogramming Helpers used to mimic command line options.
 //
