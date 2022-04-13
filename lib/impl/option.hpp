@@ -6,13 +6,14 @@
 namespace opt {
 // Command line options are passed as undefined class types
 // that get evaluated at compile time.
-class opt {};
+class none {};
 class a {};
 class c {};
 class d {};
 class l {};
 class m {};
 class n {};
+class u {};
 class w {};
 
 // A helper that takes a list of options types and validates them.

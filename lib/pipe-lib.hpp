@@ -11,7 +11,7 @@ namespace sh {
 //
 // Cat command
 //
-template <typename option = opt::opt>
+template <typename option = opt::none>
 class Cat : public detail::BasicPipe {
 public:
    template <typename... Filenames>
@@ -36,16 +36,16 @@ private:
 //
 // Echo command
 //
-template <typename option = opt::opt>
+template <typename option = opt::none>
 class Echo : public detail::BasicPipe {
 public:
    template <typename... Strings>
    Echo(Strings... strings) {
       std::string joined_strings;
-      if constexpr(std::is_same_v<option, opt::opt>) {
-         joined_strings = (add_newline(strings) + ...);
-      } else if constexpr(std::is_same_v<option, opt::n>) {
+      if constexpr(std::is_same_v<option, opt::n>) {
          joined_strings = (std::string(strings) + ...);
+      } else {
+         joined_strings = (add_newline(strings) + ...);
       }
       
       std::istringstream instring(joined_strings);

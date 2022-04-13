@@ -1,9 +1,17 @@
 #pragma once
 
+#include "option.hpp"
+
 //
 // Classes used to mimick the output behavior after a series of shell commands.
 //
 namespace sh {
+
+/*
+ 
+ File
+ 
+ */
 
 // A simple file class that is used to output the value of a pipe
 // by mimicking shell syntax with > and >>.
@@ -22,6 +30,12 @@ public:
    const std::string _filename;
 };
 
+/*
+ 
+ Tee
+ 
+ */
+
 // A replacement for the tee command by writing to an output stream,
 // writing or appending to files and mimicking shell syntax with |.
 //
@@ -32,7 +46,7 @@ public:
 //
 // Or with multiple files at once.
 // Ex. sh::Pipe(is) | sh::Tee("example.txt", "another.txt", "one_more.txt");
-template <typename option = opt::opt>
+template <typename option = opt::none>
 class Tee {
 public:
    template <typename... Filenames>
@@ -67,12 +81,12 @@ private:
    // Init
    //
    void add_ofstream(const std::string& file) {
-      if constexpr(std::is_same_v<option, opt::opt>) {
-         std::ofstream outfile(file);
+      if constexpr(std::is_same_v<option, opt::a>) {
+         std::ofstream outfile(file, std::ios::out | std::ios::app);
          if(outfile.is_open())
             _outfiles.push_back(std::move(outfile));
-      } else if constexpr(std::is_same_v<option, opt::a>) {
-         std::ofstream outfile(file, std::ios::out | std::ios::app);
+      } else {
+         std::ofstream outfile(file);
          if(outfile.is_open())
             _outfiles.push_back(std::move(outfile));
       }
