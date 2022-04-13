@@ -5,7 +5,7 @@
 //
 // Classes used to mimick the output behavior after a series of shell commands.
 //
-namespace sh {
+namespace pipe {
 
 /*
  
@@ -99,4 +99,4 @@ private:
    std::vector<std::ofstream> _outfiles;
 };
 
-} // namespace sh
+} // namespace pipe

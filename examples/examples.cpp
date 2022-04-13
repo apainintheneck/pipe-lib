@@ -6,5 +6,5 @@
 
 int main(int argc, const char * argv[]) {
    std::istringstream in("hello\nhello\nhello\nworld\nworld");
-   sh::Pipe(in).uniq<opt::c>() | std::cout;
+   pipe::stream(in).uniq<opt::c>() | std::cout;
 }

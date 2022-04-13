@@ -7,16 +7,17 @@
 
 #include "option.hpp"
 #include "util.hpp"
-#include "output_pipe.hpp"
+#include "output.hpp"
 
 //
 // The base class for all the following pipe classes.
 //
-namespace sh::detail {
+namespace pipe {
 
-class BasicPipe {
+class Pipe {
+   friend class Builder;
 public:
-   ~BasicPipe() = default;
+   ~Pipe() = default;
    
    /*
     
@@ -45,22 +46,22 @@ public:
    //
    
    // Defaults to retaining the top 10 lines.
-   BasicPipe head();
+   Pipe head();
    // Used for error checking options.
    template <typename option>
-   BasicPipe head(const size_t count);
+   Pipe head(const size_t count);
    // Option::n - Retains the top x lines.
    template <>
-   BasicPipe head<opt::n>(const size_t count);
+   Pipe head<opt::n>(const size_t count);
    // Option::c - Retains the top x bytes.
    template <>
-   BasicPipe head<opt::c>(const size_t count);
+   Pipe head<opt::c>(const size_t count);
    
    //
    // Sort
    //
    
-   BasicPipe sort() {
+   Pipe sort() {
       std::sort(lines.begin(), lines.end());
       
       return *this;
@@ -70,7 +71,7 @@ public:
    // Tail
    //
    
-   BasicPipe tail(const int count = 10) {
+   Pipe tail(const int count = 10) {
       if(lines.size() > count)
          lines = std::vector(lines.end() - count, lines.end());
       
@@ -82,19 +83,19 @@ public:
    //
    
    // Defaults to removing adjacent duplicate lines.
-   BasicPipe uniq();
+   Pipe uniq();
    // Used for error checking options.
    template <typename option>
-   BasicPipe uniq();
+   Pipe uniq();
    // Option::c - Prefix a count of the frequency of each line.
    template <>
-   BasicPipe uniq<opt::c>();
+   Pipe uniq<opt::c>();
    // Option::d - Only retain duplicate lines.
    template <>
-   BasicPipe uniq<opt::d>();
+   Pipe uniq<opt::d>();
    // Option::d - Only retain unique lines.
    template <>
-   BasicPipe uniq<opt::u>();
+   Pipe uniq<opt::u>();
    
    //
    // WC - Word Count
@@ -106,15 +107,15 @@ public:
    // Option::l - Line count
    // Option::w - Word count
    template <typename ...Options>
-   BasicPipe wc();
+   Pipe wc();
    
 protected:
-   BasicPipe() = default;
+   Pipe() = default;
    
    //
    // Init
    //
-   void init(std::istream& in) {
+   void append(std::istream& in) {
       std::string buffer;
       while(std::getline(in, buffer)) {
          lines.push_back(std::move(buffer));
@@ -142,22 +143,22 @@ private:
  
  */
 
-void BasicPipe::operator>(const File& file) {
+void Pipe::operator>(const File& file) {
    std::ofstream outfile(file._filename);
    pipe_to(outfile);
 }
 
-void BasicPipe::operator>>(const File& file) {
+void Pipe::operator>>(const File& file) {
    std::ofstream outfile(file._filename, std::ios::out | std::ios::app);
    pipe_to(outfile);
 }
 
-void BasicPipe::operator|(std::ostream& os) {
+void Pipe::operator|(std::ostream& os) {
    pipe_to(os);
 }
 
 template<typename tee_option>
-void BasicPipe::operator|(Tee<tee_option>& tee) {
+void Pipe::operator|(Tee<tee_option>& tee) {
    for(const auto& line : lines) {
       tee << line;
       tee << '\n';
@@ -174,7 +175,7 @@ void BasicPipe::operator|(Tee<tee_option>& tee) {
 // Head
 //
 
-BasicPipe BasicPipe::head() {
+Pipe Pipe::head() {
    const uint8_t count = 10;
    if(lines.size() > count)
       lines.resize(count);
@@ -183,13 +184,13 @@ BasicPipe BasicPipe::head() {
 }
 
 template <typename option>
-BasicPipe BasicPipe::head(const size_t count) {
+Pipe Pipe::head(const size_t count) {
    using AllowedOptions = opt::list<opt::n, opt::c>;
    static_assert(AllowedOptions::contains<option>(), "Unknown option given to Pipe.head()");
 }
 
 template <>
-BasicPipe BasicPipe::head<opt::n>(const size_t count) {
+Pipe Pipe::head<opt::n>(const size_t count) {
    if(lines.size() > count)
       lines.resize(count);
 
@@ -197,7 +198,7 @@ BasicPipe BasicPipe::head<opt::n>(const size_t count) {
 }
 
 template <>
-BasicPipe BasicPipe::head<opt::c>(const size_t count) {
+Pipe Pipe::head<opt::c>(const size_t count) {
    if(count == 0) {
       lines.clear();
       return *this;
@@ -229,7 +230,7 @@ BasicPipe BasicPipe::head<opt::c>(const size_t count) {
 // Uniq
 //
 
-BasicPipe BasicPipe::uniq() {
+Pipe Pipe::uniq() {
    if(!lines.empty()) {
       const auto last = std::unique(lines.begin(), lines.end());
       lines.erase(last, lines.end());
@@ -239,13 +240,13 @@ BasicPipe BasicPipe::uniq() {
 }
 
 template <typename option>
-BasicPipe BasicPipe::uniq() {
+Pipe Pipe::uniq() {
    using AllowedOptions = opt::list<opt::c, opt::d, opt::u>;
    static_assert(AllowedOptions::contains<option>(), "Unknown option given to Pipe.uniq()");
 }
 
 template <>
-BasicPipe BasicPipe::uniq<opt::c>() {
+Pipe Pipe::uniq<opt::c>() {
    if(lines.empty()) {
       return *this;
    }
@@ -256,7 +257,7 @@ BasicPipe BasicPipe::uniq<opt::c>() {
       auto next = detail::find_next_diff(curr, lines.end());
       auto freq = std::distance(curr, next);
       
-      curr->insert(0, pad_left(freq, 4) + " ");
+      curr->insert(0, detail::pad_left(freq, 4) + " ");
       
       if(curr != last)
          std::iter_swap(curr, last);
@@ -271,7 +272,7 @@ BasicPipe BasicPipe::uniq<opt::c>() {
 }
 
 template <>
-BasicPipe BasicPipe::uniq<opt::d>() {
+Pipe Pipe::uniq<opt::d>() {
    if(lines.empty()) {
       return *this;
    }
@@ -297,7 +298,7 @@ BasicPipe BasicPipe::uniq<opt::d>() {
 }
 
 template <>
-BasicPipe BasicPipe::uniq<opt::u>() {
+Pipe Pipe::uniq<opt::u>() {
    if(lines.empty()) {
       return *this;
    }
@@ -327,7 +328,7 @@ BasicPipe BasicPipe::uniq<opt::u>() {
 //
 
 template <typename ...Options>
-BasicPipe BasicPipe::wc() {
+Pipe Pipe::wc() {
    using AllowedOptions = opt::list<opt::c, opt::l, opt::m, opt::w>;
    using GivenOptions = opt::list<Options...>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option given to Pipe.wc()");
@@ -361,13 +362,13 @@ BasicPipe BasicPipe::wc() {
    const int width = 8;
    std::string line;
    if constexpr(GivenOptions::empty() || GivenOptions::template contains<opt::l>()) {
-      line += pad_left(num_lines, width);
+      line += detail::pad_left(num_lines, width);
    }
    if constexpr(GivenOptions::empty() || GivenOptions::template contains<opt::w>()) {
-      line += pad_left(num_words, width);
+      line += detail::pad_left(num_words, width);
    }
    if constexpr(GivenOptions::empty() || GivenOptions::template contains_any<opt::c, opt::m>()) {
-      line += pad_left(num_chars, width);
+      line += detail::pad_left(num_chars, width);
    }
    
    lines.push_back(line);
@@ -375,4 +376,4 @@ BasicPipe BasicPipe::wc() {
    return *this;
 }
 
-} // namespace sh::detail
+} // namespace pipe

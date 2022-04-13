@@ -3,74 +3,79 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <numeric>
 
-#include "impl/basic_pipe.hpp"
+#include "impl/builder.hpp"
 
-namespace sh {
+namespace pipe {
 
 //
 // Cat command
 //
-template <typename option = opt::none>
-class Cat : public detail::BasicPipe {
-public:
-   template <typename... Filenames>
-   Cat(Filenames... files) {
-      (append_file_contents(files), ...);
-   }
-   ~Cat() = default;
-
-private:
-   //
-   // Init
-   //
-   void append_file_contents(std::string filepath) {
-      std::ifstream infile(filepath);
+Pipe cat(std::initializer_list<std::string> filenames) {
+   auto builder = Builder();
+   
+   for(const auto& filename : filenames) {
+      std::ifstream file(filename);
       
-      if(infile.is_open()) {
-         init(infile);
-      }
+      if(file.is_open())
+         builder.append(file);
    }
-};
+   
+   return builder.build();
+}
 
 //
 // Echo command
 //
 template <typename option = opt::none>
-class Echo : public detail::BasicPipe {
-public:
-   template <typename... Strings>
-   Echo(Strings... strings) {
-      std::string joined_strings;
-      if constexpr(std::is_same_v<option, opt::n>) {
-         joined_strings = (std::string(strings) + ...);
-      } else {
-         joined_strings = (add_newline(strings) + ...);
-      }
-      
-      std::istringstream instring(joined_strings);
-      init(instring);
-   }
-   ~Echo() = default;
+Pipe echo(const std::string& str) {
+   using AllowedOptions = opt::list<opt::none, opt::n>;
+   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to echo()");
    
-private:
-   //
-   // Init
-   //
-   std::string add_newline(const std::string& str) {
-      return str + "\n";
+   std::istringstream input(str);
+   
+   auto builder = Builder();
+   builder.append(input);
+   return builder.build();
+}
+
+template <typename option = opt::none>
+Pipe echo(std::initializer_list<std::string> strs) {
+   static_assert(std::is_same_v<opt::none, option>, "Unknown option passed to echo()");
+   
+   std::istringstream input(std::accumulate(strs.begin(), strs.end(), std::string()));
+   
+   auto builder = Builder();
+   builder.append(input);
+   return builder.build();
+}
+
+template <>
+Pipe echo<opt::n>(std::initializer_list<std::string> strs) {
+   if(strs.size() > 0) {
+      const auto concat_with_newline = [](std::string a, std::string b) { return a + "\n" + b; };
+      std::istringstream input(std::accumulate(strs.begin() + 1, strs.end(), *strs.begin(), concat_with_newline));
+      
+      auto builder = Builder();
+      builder.append(input);
+      return builder.build();
+   } else {
+      return Builder().build();
    }
-};
+}
 
 //
-// Pipe command
+// Stream command
 //
-class Pipe : public detail::BasicPipe {
-public:
-   Pipe(std::istream& input) {
-      init(input);
-   }
-};
+template <typename ...IStream>
+Pipe stream(IStream& ...inputs) {
+   static_assert((std::is_base_of_v<std::istream, IStream> && ...), "Expected istream& parameters to be passed to cat()");
+   
+   auto builder = Builder();
+   (builder.append(inputs) && ...);
+   return builder.build();
+}
 
 //
 //class ls {
@@ -120,4 +125,4 @@ public:
 //   bool is_open_;
 //};
 
-} //namespace sh
+} //namespace pipe
