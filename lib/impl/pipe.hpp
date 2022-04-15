@@ -61,22 +61,13 @@ public:
    // Sort
    //
    
-   Pipe sort() {
-      std::sort(lines.begin(), lines.end());
-      
-      return *this;
-   }
+   Pipe sort();
    
    //
    // Tail
    //
    
-   Pipe tail(const int count = 10) {
-      if(lines.size() > count)
-         lines = std::vector(lines.end() - count, lines.end());
-      
-      return *this;
-   }
+   Pipe tail(const int count);
    
    //
    // Uniq
@@ -223,6 +214,27 @@ Pipe Pipe::head<opt::c>(const size_t count) {
    if(lines.size() > line_count)
       lines.resize(line_count);
 
+   return *this;
+}
+
+//
+// Sort
+//
+
+Pipe Pipe::sort() {
+   std::sort(lines.begin(), lines.end());
+   
+   return *this;
+}
+
+//
+// Tail
+//
+
+Pipe Pipe::tail(const int count = 10) {
+   if(lines.size() > count)
+      lines = std::vector(lines.end() - count, lines.end());
+   
    return *this;
 }
 

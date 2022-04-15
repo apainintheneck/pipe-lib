@@ -6,6 +6,22 @@
 
 namespace pipe {
 
+/*
+ 
+ Builder
+ 
+ */
+
+// A builder for the Pipe class. It makes it so
+// new facades can be created to give the illusion
+// of first calling other commands at the command line.
+//
+// For example:
+//    pipe::cat()
+//    pipe::echo()
+//
+// These methods really just use the builder to return
+// a new, fully-loaded instance of the Pipe class.
 class Builder {
 public:
    Builder() = default;
