@@ -29,6 +29,8 @@ public:
    
    void append(std::istream& stream);
    
+   void number_lines(const bool skip_blank);
+   
    Pipe build();
    
 private:
@@ -37,6 +39,10 @@ private:
 
 void Builder::append(std::istream& stream) {
    pipe.append(stream);
+}
+
+void Builder::number_lines(const bool skip_blank = false) {
+   pipe.number_lines();
 }
 
 Pipe Builder::build() {

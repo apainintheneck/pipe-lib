@@ -14,7 +14,15 @@ namespace pipe {
 //
 // Cat command
 //
+template <typename option = opt::none>
+Pipe cat(const std::string& filename) {
+   return cat<option>({filename});
+}
+
+template <typename option = opt::none>
 Pipe cat(std::initializer_list<std::string> filenames) {
+   static_assert(std::is_same_v<opt::none, option>, "Unknown option passed to cat()");
+   
    auto builder = Builder();
    
    for(const auto& filename : filenames) {
@@ -27,19 +35,44 @@ Pipe cat(std::initializer_list<std::string> filenames) {
    return builder.build();
 }
 
+template <>
+Pipe cat<opt::n>(std::initializer_list<std::string> filenames) {
+   auto builder = Builder();
+   
+   for(const auto& filename : filenames) {
+      std::ifstream file(filename);
+      
+      if(file.is_open())
+         builder.append(file);
+   }
+   
+   builder.number_lines();
+   
+   return builder.build();
+}
+
+template <>
+Pipe cat<opt::b>(std::initializer_list<std::string> filenames) {
+   auto builder = Builder();
+   
+   for(const auto& filename : filenames) {
+      std::ifstream file(filename);
+      
+      if(file.is_open())
+         builder.append(file);
+   }
+   
+   builder.number_lines(true);
+   
+   return builder.build();
+}
+
 //
 // Echo command
 //
 template <typename option = opt::none>
 Pipe echo(const std::string& str) {
-   using AllowedOptions = opt::list<opt::none, opt::n>;
-   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to echo()");
-   
-   std::istringstream input(str);
-   
-   auto builder = Builder();
-   builder.append(input);
-   return builder.build();
+   return echo<option>({str});
 }
 
 template <typename option = opt::none>

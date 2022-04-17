@@ -100,27 +100,23 @@ public:
    template <typename ...Options>
    Pipe wc();
    
-protected:
+private:
    Pipe() = default;
    
    //
    // Init
    //
-   void append(std::istream& in) {
-      std::string buffer;
-      while(std::getline(in, buffer)) {
-         lines.push_back(std::move(buffer));
-      }
-   }
+   void append(std::istream& in);
+   
+   //
+   // Helpers
+   //
+   void number_lines(const bool skip_blank);
 
-private:
    //
    // Output
    //
-   void pipe_to(std::ostream& os) {
-      for(const auto& line : lines)
-         os << line << '\n';
-   }
+   void pipe_to(std::ostream& os);
    
    //
    // Variables
@@ -386,6 +382,52 @@ Pipe Pipe::wc() {
    lines.push_back(line);
    
    return *this;
+}
+
+// PRIVATE
+
+//
+// Init
+//
+void Pipe::append(std::istream& in) {
+   std::string buffer;
+   while(std::getline(in, buffer)) {
+      lines.push_back(std::move(buffer));
+   }
+}
+
+//
+// Helpers
+//
+void Pipe::number_lines(const bool skip_blank = false) {
+   const short width = 4;
+   size_t i = 1;
+   
+   if(skip_blank) {
+      const auto blank_indent = std::string(width + 1, ' ');
+      
+      for(auto& line : lines) {
+         if(not line.empty()) {
+            line.insert(0, detail::pad_left(i, width) + " ");
+         } else {
+            line.insert(0, blank_indent);
+         }
+         ++i;
+      }
+   } else {
+      for(auto& line : lines) {
+         line.insert(0, detail::pad_left(i, width) + " ");
+         ++i;
+      }
+   }
+}
+
+//
+// Output
+//
+void Pipe::pipe_to(std::ostream& os) {
+   for(const auto& line : lines)
+      os << line << '\n';
 }
 
 } // namespace pipe

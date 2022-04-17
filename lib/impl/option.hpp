@@ -10,6 +10,7 @@ namespace opt {
 // that get evaluated at compile time.
 class none {};
 class a {};
+class b {};
 class c {};
 class d {};
 class l {};
