@@ -13,9 +13,11 @@ class a {};
 class b {};
 class c {};
 class d {};
+class f {};
 class l {};
 class m {};
 class n {};
+class r {};
 class u {};
 class w {};
 

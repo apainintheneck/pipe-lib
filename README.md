@@ -15,8 +15,12 @@ Start command methods = Use the builder to create a pipe with the given input an
 ## Pipe Structure
 pipe::Echo<opt::n>("Hello World!")  >> pipe::File("example.txt");
 
+## Note:
+Grep, egrep and awk should be easy to implement using the standard regex library.
+
 ## TODO:
 - Add the following commands
+      awk
       cmp
       comm
       cut

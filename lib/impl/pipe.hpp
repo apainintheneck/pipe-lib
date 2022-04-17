@@ -4,6 +4,8 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <cctype>
+#include <string_view>
 
 #include "option.hpp"
 #include "detail/util.hpp"
@@ -17,6 +19,8 @@ namespace pipe {
 class Pipe {
    friend class Builder;
 public:
+   using StringCmp = std::function<bool(const std::string&, const std::string&)>;
+   
    ~Pipe() = default;
    
    /*
@@ -47,12 +51,9 @@ public:
    
    // Defaults to retaining the top 10 lines.
    Pipe head();
-   // Used for error checking options.
+   // Option::n - Retains the top x lines. [Base case]
    template <typename option>
    Pipe head(const size_t count);
-   // Option::n - Retains the top x lines.
-   template <>
-   Pipe head<opt::n>(const size_t count);
    // Option::c - Retains the top x bytes.
    template <>
    Pipe head<opt::c>(const size_t count);
@@ -61,7 +62,12 @@ public:
    // Sort
    //
    
+   // Default lexical sort. [Base case]
+   template <typename ...Options>
    Pipe sort();
+   // Option::m - Merge two selected ranges by comparator.
+   template <typename ...Options>
+   Pipe sort(const Pipe& other);
    
    //
    // Tail
@@ -73,9 +79,7 @@ public:
    // Uniq
    //
    
-   // Defaults to removing adjacent duplicate lines.
-   Pipe uniq();
-   // Used for error checking options.
+   // Defaults to removing adjacent duplicate lines. [Base case]
    template <typename option>
    Pipe uniq();
    // Option::c - Prefix a count of the frequency of each line.
@@ -112,6 +116,10 @@ private:
    // Helpers
    //
    void number_lines(const bool skip_blank);
+   
+   static std::vector<std::string> merge(const Pipe& p1, const Pipe& p2, StringCmp cmp);
+   template <typename ...Options>
+   StringCmp sort_cmp();
 
    //
    // Output
@@ -172,12 +180,8 @@ Pipe Pipe::head() {
 
 template <typename option>
 Pipe Pipe::head(const size_t count) {
-   using AllowedOptions = opt::list<opt::n, opt::c>;
-   static_assert(AllowedOptions::contains<option>(), "Unknown option given to Pipe.head()");
-}
+   static_assert(std::is_same_v<option, opt::n>, "Unknown option given to Pipe.head()");
 
-template <>
-Pipe Pipe::head<opt::n>(const size_t count) {
    if(lines.size() > count)
       lines.resize(count);
 
@@ -217,8 +221,33 @@ Pipe Pipe::head<opt::c>(const size_t count) {
 // Sort
 //
 
+template <typename ...Options>
 Pipe Pipe::sort() {
-   std::sort(lines.begin(), lines.end());
+   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::r, opt::u>;
+   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
+   using GivenOptions = opt::list<Options...>;
+   
+   std::sort(lines.begin(), lines.end(), sort_cmp<Options...>());
+   
+   if constexpr(GivenOptions::template contains<opt::u>()) {
+      std::unique(lines.begin(), lines.end());
+   }
+   
+   return *this;
+}
+
+template <typename ...Options>
+Pipe Pipe::sort(const Pipe& other) {
+   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::m, opt::r, opt::u>;
+   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
+   using GivenOptions = opt::list<Options...>;
+   static_assert(GivenOptions::template contains<opt::m>(), "-m option NOT passed to Pipe.sort() merge method");
+   
+   std::swap(lines, merge(this, other, sort_cmp<Options...>()));
+   
+   if constexpr(GivenOptions::template contains<opt::u>()) {
+      std::unique(lines.begin(), lines.end());
+   }
    
    return *this;
 }
@@ -238,19 +267,16 @@ Pipe Pipe::tail(const int count = 10) {
 // Uniq
 //
 
+template <typename option = opt::none>
 Pipe Pipe::uniq() {
+   static_assert(std::is_same_v<option, opt::none>, "Unknown option given to Pipe.uniq()");
+   
    if(!lines.empty()) {
       const auto last = std::unique(lines.begin(), lines.end());
       lines.erase(last, lines.end());
    }
    
    return *this;
-}
-
-template <typename option>
-Pipe Pipe::uniq() {
-   using AllowedOptions = opt::list<opt::c, opt::d, opt::u>;
-   static_assert(AllowedOptions::contains<option>(), "Unknown option given to Pipe.uniq()");
 }
 
 template <>
@@ -420,6 +446,45 @@ void Pipe::number_lines(const bool skip_blank = false) {
          ++i;
       }
    }
+}
+
+std::vector<std::string> Pipe::merge(const Pipe& p1, const Pipe& p2, StringCmp cmp) {
+   std::vector<std::string> dest;
+   
+   std::merge(p1.lines.begin(), p1.lines.end(),
+              p2.lines.begin(), p2.lines.end(),
+              std::back_inserter(dest), cmp);
+   
+   return dest;
+}
+
+template <typename ...Options>
+Pipe::StringCmp Pipe::sort_cmp() {
+   using GivenOptions = opt::list<Options...>;
+   
+   Pipe::StringCmp cmp;
+   
+   if constexpr(GivenOptions::template contains<opt::b>()) {
+      cmp = [](const std::string& a, const std::string& b) {
+         int a_idx = 0;
+         while(a_idx < a.size() && std::isspace(a[a_idx]))
+            ++a_idx;
+         
+         int b_idx = 0;
+         while(b_idx < b.size() && std::isspace(b[b_idx]))
+            ++b_idx;
+         
+         return a.compare(a_idx, a.size(), b, b_idx) < 0;
+      };
+   } else {
+      cmp = std::less<const std::string&>();
+   }
+   
+   if constexpr(GivenOptions::template contains<opt::r>()) {
+      cmp = std::not_fn(cmp);
+   }
+   
+   return cmp;
 }
 
 //
