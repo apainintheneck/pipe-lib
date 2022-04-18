@@ -13,7 +13,9 @@ class a {};
 class b {};
 class c {};
 class d {};
+class E {};
 class f {};
+class i {};
 class l {};
 class m {};
 class n {};
@@ -27,17 +29,17 @@ template <typename ...Options>
 struct list {
    template <typename option>
    static constexpr bool contains() {
-      return (std::is_same_v<option, Options> || ...);
+      return (std::is_same_v<option, Options> or ...);
    }
    
    template <typename ...OptionsToTest>
    static constexpr bool contains_all() {
-      return (contains<OptionsToTest>() && ...);
+      return (contains<OptionsToTest>() and ...);
    }
    
    template <typename ...OptionsToTest>
    static constexpr bool contains_any() {
-      return (contains<OptionsToTest>() || ...);
+      return (contains<OptionsToTest>() or ...);
    }
    
    static constexpr bool empty() {

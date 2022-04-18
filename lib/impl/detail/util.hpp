@@ -72,7 +72,7 @@ std::string_view skip_whitespace(const std::string_view str) {
 //
 //std::string_view skip_n_fields(const std::string_view str, size_t n) {
 //   auto iter = str.begin();
-//   while(iter != str.end() && n > 0) {
+//   while(iter != str.end() and n > 0) {
 //      iter = consume_whitespace(iter, str.end());
 //      iter = consume_field(iter, str.end());
 //      --n;

@@ -105,10 +105,10 @@ Pipe echo<opt::n>(std::initializer_list<std::string> strs) {
 //
 template <typename ...IStream>
 Pipe stream(IStream& ...inputs) {
-   static_assert((std::is_base_of_v<std::istream, IStream> && ...), "Expected istream& parameters to be passed to cat()");
+   static_assert((std::is_base_of_v<std::istream, IStream> and ...), "Expected istream& parameters to be passed to cat()");
    
    auto builder = Builder();
-   (builder.append(inputs) && ...);
+   (builder.append(inputs) and ...);
    return builder.build();
 }
 

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <string_view>
+#include <regex>
 
 #include "option.hpp"
 #include "detail/util.hpp"
@@ -44,6 +45,16 @@ public:
     Pipe Filters
     
     */
+   
+   //
+   // Grep
+   //
+   
+   // Defaults to basic grep.
+   // Option::i - Ignore case
+   // Option::E - egrep (extended grep)
+   template <typename ...Options>
+   Pipe grep(const std::string& pattern);
    
    //
    // Head
@@ -165,6 +176,40 @@ void Pipe::operator|(Tee<tee_option>& tee) {
  Pipe Filters
  
  */
+
+//
+// Grep
+//
+
+template <typename ...Options>
+Pipe Pipe::grep(const std::string& pattern) {
+   using AllowedOptions = opt::list<opt::i, opt::E>;
+   static_assert(AllowedOptions::template contains_all<Options...>(), "Unknown option passed to Pipe.grep()");
+   using GivenOptions = opt::list<Options...>;
+   
+   std::regex regex;
+   
+   if constexpr(GivenOptions::template contains<opt::i>()) {
+      if constexpr(GivenOptions::template contains<opt::E>()) {
+         regex = std::regex(pattern, std::regex::egrep | std::regex::icase);
+      } else {
+         regex = std::regex(pattern, std::regex::grep | std::regex::icase);
+      }
+   } else {
+      if constexpr(GivenOptions::template contains<opt::E>()) {
+         regex = std::regex(pattern, std::regex::egrep);
+      } else {
+         regex = std::regex(pattern, std::regex::grep);
+      }
+   }
+
+   const auto is_not_match = [&regex](const std::string& str){ return not std::regex_search(str, regex); };
+   
+   const auto new_end = std::remove_if(lines.begin(), lines.end(), is_not_match);
+   lines.erase(new_end, lines.end());
+   
+   return *this;
+}
 
 //
 // Head
