@@ -19,7 +19,7 @@ namespace pipe {
 class Pipe {
    friend class Builder;
 public:
-   using StringCmp = std::function<bool(const std::string&, const std::string&)>;
+   using StringCmp = std::function<bool(const std::string_view, const std::string_view)>;
    
    ~Pipe() = default;
    
@@ -59,7 +59,7 @@ public:
    Pipe head<opt::c>(const size_t count);
    
    //
-   // Sort
+   // Sorhs
    //
    
    // Default lexical sort. [Base case]
@@ -218,16 +218,20 @@ Pipe Pipe::head<opt::c>(const size_t count) {
 }
 
 //
-// Sort
+// Sorhs
 //
 
 template <typename ...Options>
 Pipe Pipe::sort() {
-   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::r, opt::u>;
+   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::r, opt::s, opt::u>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
    using GivenOptions = opt::list<Options...>;
    
-   std::sort(lines.begin(), lines.end(), sort_cmp<Options...>());
+   if constexpr(GivenOptions::template contains<opt::s>()) {
+      std::stable_sort(lines.begin(), lines.end(), sort_cmp<Options...>());
+   } else {
+      std::sort(lines.begin(), lines.end(), sort_cmp<Options...>());
+   }
    
    if constexpr(GivenOptions::template contains<opt::u>()) {
       std::unique(lines.begin(), lines.end());
@@ -238,10 +242,10 @@ Pipe Pipe::sort() {
 
 template <typename ...Options>
 Pipe Pipe::sort(const Pipe& other) {
-   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::m, opt::r, opt::u>;
+   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::m, opt::r, opt::s, opt::u>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
    using GivenOptions = opt::list<Options...>;
-   static_assert(GivenOptions::template contains<opt::m>(), "-m option NOT passed to Pipe.sort() merge method");
+   static_assert(GivenOptions::template contains<opt::m>(), "-m option required for Pipe.sort() merge method");
    
    std::swap(lines, merge(this, other, sort_cmp<Options...>()));
    
@@ -271,7 +275,7 @@ template <typename option = opt::none>
 Pipe Pipe::uniq() {
    static_assert(std::is_same_v<option, opt::none>, "Unknown option given to Pipe.uniq()");
    
-   if(!lines.empty()) {
+   if(not lines.empty()) {
       const auto last = std::unique(lines.begin(), lines.end());
       lines.erase(last, lines.end());
    }
@@ -377,14 +381,14 @@ Pipe Pipe::wc() {
       auto it = line.begin();
       while(it != line.end()) {
          // Consume whitespace
-         while(it != line.end() && std::isspace(*it))
+         while(it != line.end() and std::isspace(*it))
             ++it;
          
          if(it != line.end())
             ++num_words;
          
          // Consume word
-         while(it != line.end() && !std::isspace(*it))
+         while(it != line.end() and not std::isspace(*it))
             ++it;
       }
    }
@@ -395,13 +399,13 @@ Pipe Pipe::wc() {
    // format of lines, words and chars.
    const int width = 8;
    std::string line;
-   if constexpr(GivenOptions::empty() || GivenOptions::template contains<opt::l>()) {
+   if constexpr(GivenOptions::empty() or GivenOptions::template contains<opt::l>()) {
       line += detail::pad_left(num_lines, width);
    }
-   if constexpr(GivenOptions::empty() || GivenOptions::template contains<opt::w>()) {
+   if constexpr(GivenOptions::empty() or GivenOptions::template contains<opt::w>()) {
       line += detail::pad_left(num_words, width);
    }
-   if constexpr(GivenOptions::empty() || GivenOptions::template contains_any<opt::c, opt::m>()) {
+   if constexpr(GivenOptions::empty() or GivenOptions::template contains_any<opt::c, opt::m>()) {
       line += detail::pad_left(num_chars, width);
    }
    
@@ -464,20 +468,89 @@ Pipe::StringCmp Pipe::sort_cmp() {
    
    Pipe::StringCmp cmp;
    
-   if constexpr(GivenOptions::template contains<opt::b>()) {
-      cmp = [](const std::string& a, const std::string& b) {
-         int a_idx = 0;
-         while(a_idx < a.size() && std::isspace(a[a_idx]))
-            ++a_idx;
+   if constexpr(GivenOptions::template contains_all<opt::d, opt::f>()) {
+      cmp = [](const std::string_view lhs, const std::string_view rhs) {
+         auto lhs_it = lhs.begin();
+         auto rhs_it = rhs.begin();
          
-         int b_idx = 0;
-         while(b_idx < b.size() && std::isspace(b[b_idx]))
-            ++b_idx;
+         for(;;) {
+            while(lhs_it != lhs.end() and not std::isalnum(*lhs_it) and not std::isspace(*lhs_it))
+               ++lhs_it;
+            
+            while(rhs_it != rhs.end() and not std::isalnum(*rhs_it) and not std::isspace(*rhs_it))
+               ++rhs_it;
+            
+            if(lhs_it == lhs.end() or rhs_it == rhs.end()
+               or std::toupper(*lhs_it) != std::toupper(*rhs_it)) {
+               break;
+            }
+            
+            ++lhs_it;
+            ++rhs_it;
+         }
          
-         return a.compare(a_idx, a.size(), b, b_idx) < 0;
+         if(lhs_it == lhs.end()) {
+            return true;
+         } else if(rhs_it == rhs.end()) {
+            return false;
+         } else {
+            return std::toupper(*lhs_it) < std::toupper(*rhs_it);
+         }
+      };
+   } else if constexpr(GivenOptions::template contains<opt::d>()) {
+      cmp = [](const std::string_view lhs, const std::string_view rhs) {
+         auto lhs_it = lhs.begin();
+         auto rhs_it = rhs.begin();
+         
+         for(;;) {
+            while(lhs_it != lhs.end() and not std::isalnum(*lhs_it) and not std::isspace(*lhs_it))
+               ++lhs_it;
+            
+            while(rhs_it != rhs.end() and not std::isalnum(*rhs_it) and not std::isspace(*rhs_it))
+               ++rhs_it;
+            
+            if(lhs_it == lhs.end() or rhs_it == rhs.end() or *lhs_it != *rhs_it)
+               break;
+            
+            ++lhs_it;
+            ++rhs_it;
+         }
+         
+         if(lhs_it == lhs.end()) {
+            return true;
+         } else if(rhs_it == rhs.end()) {
+            return false;
+         } else {
+            return *lhs_it < *rhs_it;
+         }
+      };
+   } else if constexpr(GivenOptions::template contains<opt::f>()) {
+      cmp = [](const std::string_view lhs, const std::string_view rhs) {
+         auto lhs_it = lhs.begin();
+         auto rhs_it = rhs.begin();
+         
+         while(lhs_it != lhs.end() and rhs_it != rhs.end()
+               and std::toupper(*lhs_it) == std::toupper(*rhs_it)) {
+            ++lhs_it;
+            ++rhs_it;
+         }
+         
+         if(lhs_it == lhs.end()) {
+            return true;
+         } else if(rhs_it == rhs.end()) {
+            return false;
+         } else {
+            return *lhs_it < *rhs_it;
+         }
       };
    } else {
-      cmp = std::less<const std::string&>();
+      cmp = std::less<const std::string_view>();
+   }
+   
+   if constexpr(GivenOptions::template contains<opt::b>()) {
+      cmp = [cmp](const std::string_view lhs, const std::string_view rhs) {
+         return cmp(detail::skip_whitespace(lhs), detail::skip_whitespace(rhs));
+      };
    }
    
    if constexpr(GivenOptions::template contains<opt::r>()) {

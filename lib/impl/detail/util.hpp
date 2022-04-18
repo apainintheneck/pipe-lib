@@ -31,6 +31,14 @@ std::string pad_left(const T value, const size_t width) {
    return pad_left(std::to_string(value), width);
 }
 
+std::string_view skip_whitespace(const std::string_view str) {
+   int idx = 0;
+   while(idx < str.size() && std::isspace(str[idx]))
+      ++idx;
+   
+   return std::string_view(str.data() + idx, str.size() - idx);
+}
+
 //bool case_insensitive_cmp(const std::string_view a, const std::string_view b) {
 //   auto cmp_upper_char = [](const char a, const char b) {
 //      return std::toupper(a) == std::toupper(b);

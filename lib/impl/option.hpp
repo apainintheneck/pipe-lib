@@ -18,6 +18,7 @@ class l {};
 class m {};
 class n {};
 class r {};
+class s {};
 class u {};
 class w {};
 

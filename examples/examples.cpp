@@ -10,6 +10,6 @@ int main(int argc, const char * argv[]) {
    
    std::cout << '\n';
    
-   std::istringstream in2("   zello\nhello\nhello\nworld\nworld");
-   pipe::stream(in2).uniq().sort() | std::cout;
+   std::istringstream in2("hel&&lo\n&&&HELLO\nhell&&&o\nzorld\n&&world\nworld");
+   pipe::stream(in2).uniq().sort<opt::f, opt::d, opt::s>() | std::cout;
 }
