@@ -70,7 +70,7 @@ public:
    Pipe head<opt::c>(const size_t count);
    
    //
-   // Sorhs
+   // Sort
    //
    
    // Default lexical sort. [Base case]
@@ -84,7 +84,20 @@ public:
    // Tail
    //
    
-   Pipe tail(const int count);
+   // Defaults to retaining the bottom 10 lines.
+   Pipe tail();
+   // Option::n - Retains the bottom x lines. [Base case]
+   template <typename option>
+   Pipe tail(const size_t count);
+   // Option::c - Retains the bottom x bytes.
+   template <>
+   Pipe tail<opt::c>(const size_t count);
+   
+   //
+   // Tr
+   //
+   
+   Pipe tr(const std::string& to_replace, const std::string& replacement);
    
    //
    // Uniq
@@ -304,13 +317,70 @@ Pipe Pipe::sort(const Pipe& other) {
 //
 // Tail
 //
-
-Pipe Pipe::tail(const int count = 10) {
+Pipe Pipe::tail() {
+   const uint8_t count = 10;
    if(lines.size() > count)
       lines = std::vector(lines.end() - count, lines.end());
    
    return *this;
 }
+
+template <typename option>
+Pipe Pipe::tail(const size_t count) {
+   static_assert(std::is_same_v<option, opt::n>, "Unknown option given to Pipe.tail()");
+
+   if(lines.size() > count)
+      lines = std::vector(lines.end() - count, lines.end());
+
+   return *this;
+}
+
+template <>
+Pipe Pipe::tail<opt::c>(const size_t count) {
+   if(count == 0) {
+      lines.clear();
+      return *this;
+   }
+   
+   size_t line_count = 0;
+   size_t char_count = 0;
+   
+   for(auto rev_it = lines.rbegin(); rev_it != lines.rend(); ++rev_it) {
+      ++line_count;
+      char_count += rev_it->size();
+      if(char_count >= count) {
+         auto extra_chars = char_count - count;
+         
+         if(extra_chars != 0)
+            *rev_it = std::string(rev_it->begin() + extra_chars, rev_it->end());
+         
+         break;
+      }
+   }
+   
+   if(lines.size() > line_count)
+      lines = std::vector(lines.end() - line_count, lines.end());
+
+   return *this;
+}
+
+//
+// Tr
+//
+
+////TODO: This is not how the tr command works lol.
+//Pipe Pipe::tr(const std::string& to_replace, const std::string& replacement) {
+//   for(auto& line : lines) {
+//      auto pos = line.find(to_replace);
+//
+//      if(pos == std::string::npos)
+//         continue;
+//
+//      line.replace(pos, to_replace.size(), replacement);
+//   }
+//
+//   return *this;
+//}
 
 //
 // Uniq

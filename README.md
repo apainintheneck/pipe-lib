@@ -16,30 +16,21 @@ Start command methods = Use the builder to create a pipe with the given input an
 pipe::Echo<opt::n>("Hello World!")  >> pipe::File("example.txt");
 
 ## Note:
-Grep, egrep and awk should be easy to implement using the standard regex library.
+While awk and sed options exist in the std::regex library they don't behave the what you'd expect. It would probably be best to leave these two commands out for now unless we can come up with a better user interface.
 
 ## TODO:
-- Add the following commands
-      awk
-      cmp
-      comm
-      cut
-      diff
-      date
-      expr
-      fold
-      find
-      getopts
-      grep
-      join
-      paste
-      read
-      sed
-      time
-      tr
-      zcat
-      ps
-      du
-      stat, readlink
-      exec
+- Start Commands
+find
+ls
+du
+ps
+- Filter Commands
+cmp
+comm
+cut
+diff
+fold
+join
+paste
+tr
 - Update current commands and add additional options
