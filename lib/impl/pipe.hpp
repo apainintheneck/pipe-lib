@@ -4,9 +4,11 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <numeric>
 #include <cctype>
 #include <string_view>
 #include <regex>
+#include <map>
 
 #include "option.hpp"
 #include "detail/util.hpp"
@@ -34,6 +36,10 @@ public:
    void operator>(const File& file);
    // Appends piped lines to File.
    void operator>>(const File& file);
+   // Overwrites string with piped lines.
+   void operator>(std::string& str);
+   // Appends piped lines to string.
+   void operator>>(std::string& str);
    // Append to ostream.
    void operator|(std::ostream& os);
    // Pipe to Tee (append or write options specified in Tee class).
@@ -134,16 +140,23 @@ private:
    //
    // Init
    //
+   
+   // Parse lines of text from input stream and append them to lines vector.
    void append(std::istream& in);
    
    //
    // Helpers
    //
-   void number_lines(const bool skip_blank);
    
+   // Number all lines in lines vector.
+   void number_lines(const bool skip_blank);
+   // Return total number of chars in all lines.
+   size_t char_count() const;
+   // Merge two sorted Pipes.
    static std::vector<std::string> merge(const Pipe& p1, const Pipe& p2, StringCmp cmp);
+   // Get the comparator needed to sort the lines.
    template <typename ...Options>
-   StringCmp sort_cmp();
+   static StringCmp sort_cmp();
 
    //
    // Output
@@ -170,6 +183,19 @@ void Pipe::operator>(const File& file) {
 void Pipe::operator>>(const File& file) {
    std::ofstream outfile(file._filename, std::ios::out | std::ios::app);
    pipe_to(outfile);
+}
+
+void Pipe::operator>(std::string& str) {
+   str.clear();
+   str.reserve(char_count());
+   for(const auto& line : lines)
+      str += line;
+}
+
+void Pipe::operator>>(std::string& str) {
+   str.reserve(char_count() + str.length());
+   for(const auto& line : lines)
+      str += line;
 }
 
 void Pipe::operator|(std::ostream& os) {
@@ -368,19 +394,31 @@ Pipe Pipe::tail<opt::c>(const size_t count) {
 // Tr
 //
 
-////TODO: This is not how the tr command works lol.
-//Pipe Pipe::tr(const std::string& to_replace, const std::string& replacement) {
-//   for(auto& line : lines) {
-//      auto pos = line.find(to_replace);
-//
-//      if(pos == std::string::npos)
-//         continue;
-//
-//      line.replace(pos, to_replace.size(), replacement);
-//   }
-//
-//   return *this;
-//}
+//TODO: Explore adding support for regex constants a la [:alpha:] and [a-z].
+Pipe Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
+   std::map<char, char> translation_map;
+   
+   auto it1 = pattern1.begin();
+   auto it2 = pattern2.begin();
+   for(; it1 != pattern1.end(); ++it1) {
+      if(it2 != pattern2.end()) {
+         translation_map[*it1] = pattern2.back();
+      } else {
+         translation_map[*it1] = *it2;
+         ++it2;
+      }
+   }
+   
+   auto translate = [&translation_map](char ch){
+      return translation_map.count(ch) ? translation_map[ch] : ch;
+   };
+   
+   for(auto& line : lines) {
+      std::transform(line.begin(), line.end(), line.begin(), translate);
+   }
+
+   return *this;
+}
 
 //
 // Uniq
@@ -565,6 +603,12 @@ void Pipe::number_lines(const bool skip_blank = false) {
          ++i;
       }
    }
+}
+
+size_t Pipe::char_count() const {
+   size_t count = 0;
+   return std::accumulate(lines.begin(), lines.end(), count,
+                          [](size_t count, const std::string& line){ return count + line.length(); });
 }
 
 std::vector<std::string> Pipe::merge(const Pipe& p1, const Pipe& p2, StringCmp cmp) {
