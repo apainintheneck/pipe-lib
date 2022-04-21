@@ -13,7 +13,7 @@ PipeBuilder class = Used to build a new pipe. The pipe doesn't get constructed b
 Start command methods = Use the builder to create a pipe with the given input and return it so the user can mess around with it. This means that the pipe::cat, pipe::echo, and pipe::stream methods take arguments and feed them to the builder according to the options passed to them. This is helpful because it allows you to use template specialization and provide static asserts to check that the options are valid at compile time.
 
 ## Pipe Structure
-pipe::Echo<opt::n>("Hello World!")  >> pipe::File("example.txt");
+pipe::echo<opt::n>("Hello World!")  >> pipe::File("example.txt");
 
 ## Note:
 While awk and sed options exist in the std::regex library they don't behave the what you'd expect. It would probably be best to leave these two commands out for now unless we can come up with a better user interface.

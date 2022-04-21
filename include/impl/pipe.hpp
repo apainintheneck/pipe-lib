@@ -405,7 +405,7 @@ Pipe Pipe::tail<opt::c>(const size_t count) {
 // Tr
 //
 
-//TODO: Explore adding support for regex constants a la [:alpha:] and [a-z].
+//TODO: Explore adding support for regex constants a la [:alpha:], [a-z] and [abc].
 
 //TODO: Add support for -ds option which applies d and then s. Also, option c should be supported here as well.
 Pipe Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
@@ -455,16 +455,16 @@ Pipe Pipe::tr(const std::string& pattern) {
          line.erase(last, line.end());
       }
    } else { // Option::s
-      std::function<bool(char, char)> is_same_n_match = [&pattern](char first, char second){
+      std::function<bool(char, char)> is_same_and_match = [&pattern](char first, char second){
          return first == second and pattern.find(first) != std::string::npos;
       };
       
       if constexpr(GivenOptions::template contains<opt::c>()) {
-         is_same_n_match = std::not_fn(is_same_n_match);
+         is_same_and_match = std::not_fn(is_same_and_match);
       }
       
       for(auto& line : lines) {
-         auto last = std::unique(line.begin(), line.end(), is_same_n_match);
+         auto last = std::unique(line.begin(), line.end(), is_same_and_match);
          line.erase(last, line.end());
       }
    }
