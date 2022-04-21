@@ -103,7 +103,16 @@ public:
    // Tr
    //
    
-   Pipe tr(const std::string& to_replace, const std::string& replacement);
+   // Defaults to translating characters from pattern1 to pattern2
+   // based upon their position.
+   Pipe tr(const std::string& pattern1, const std::string& pattern2);
+   // Covers the one argument uses of the tr cmd.
+   // Requires Option::d or Option::s with optional Option::c
+   // Option::d - Deletes matching characters
+   // Option::s - Squeezes adjacent matching characters (like unique but only for matching chars).
+   // Option::c - Use the compliment of the given pattern.
+   template <typename ...Options>
+   Pipe tr(const std::string& pattern);
    
    //
    // Uniq
@@ -318,7 +327,8 @@ Pipe Pipe::sort() {
    }
    
    if constexpr(GivenOptions::template contains<opt::u>()) {
-      std::unique(lines.begin(), lines.end());
+      auto last = std::unique(lines.begin(), lines.end());
+      lines.erase(last, lines.end());
    }
    
    return *this;
@@ -334,7 +344,8 @@ Pipe Pipe::sort(const Pipe& other) {
    std::swap(lines, merge(this, other, sort_cmp<Options...>()));
    
    if constexpr(GivenOptions::template contains<opt::u>()) {
-      std::unique(lines.begin(), lines.end());
+      auto last = std::unique(lines.begin(), lines.end());
+      lines.erase(last, lines.end());
    }
    
    return *this;
@@ -395,13 +406,15 @@ Pipe Pipe::tail<opt::c>(const size_t count) {
 //
 
 //TODO: Explore adding support for regex constants a la [:alpha:] and [a-z].
+
+//TODO: Add support for -ds option which applies d and then s. Also, option c should be supported here as well.
 Pipe Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
    std::map<char, char> translation_map;
    
    auto it1 = pattern1.begin();
    auto it2 = pattern2.begin();
    for(; it1 != pattern1.end(); ++it1) {
-      if(it2 != pattern2.end()) {
+      if(it2 == pattern2.end()) {
          translation_map[*it1] = pattern2.back();
       } else {
          translation_map[*it1] = *it2;
@@ -415,6 +428,45 @@ Pipe Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
    
    for(auto& line : lines) {
       std::transform(line.begin(), line.end(), line.begin(), translate);
+   }
+
+   return *this;
+}
+
+template <typename ...Options>
+Pipe Pipe::tr(const std::string& pattern) {
+   using RequiredOptions = opt::list<opt::d, opt::s>;
+   static_assert(RequiredOptions::contains_any<Options...>(), "Pipe.tr() missing required option -d or -s");
+   using AllowedOptions = opt::list<opt::d, opt::s, opt::c>;
+   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option given to Pipe.tr()");
+   using GivenOptions = opt::list<Options...>;
+   
+   if constexpr(GivenOptions::template contains<opt::d>()) {
+      std::function<bool(char)> match_pattern = [&pattern](char ch){
+         return pattern.find(ch) != std::string::npos;
+      };
+      
+      if constexpr(GivenOptions::template contains<opt::c>()) {
+         match_pattern = std::not_fn(match_pattern);
+      }
+      
+      for(auto& line : lines) {
+         auto last = std::remove_if(line.begin(), line.end(), match_pattern);
+         line.erase(last, line.end());
+      }
+   } else { // Option::s
+      std::function<bool(char, char)> is_same_n_match = [&pattern](char first, char second){
+         return first == second and pattern.find(first) != std::string::npos;
+      };
+      
+      if constexpr(GivenOptions::template contains<opt::c>()) {
+         is_same_n_match = std::not_fn(is_same_n_match);
+      }
+      
+      for(auto& line : lines) {
+         auto last = std::unique(line.begin(), line.end(), is_same_n_match);
+         line.erase(last, line.end());
+      }
    }
 
    return *this;
