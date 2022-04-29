@@ -19,12 +19,6 @@ pipe::echo<opt::n>("Hello World!")  >> pipe::File("example.txt");
 While awk and sed options exist in the std::regex library they don't behave the what you'd expect. It would probably be best to leave these two commands out for now unless we can come up with a better user interface.
 
 ## TODO:
-- Start Commands
-find
-ls
-du
-ps
-- Filter Commands
 cmp
 comm
 cut

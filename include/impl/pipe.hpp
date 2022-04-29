@@ -405,17 +405,20 @@ Pipe Pipe::tail<opt::c>(const size_t count) {
 // Tr
 //
 
-//TODO: Explore adding support for regex constants a la [:alpha:], [a-z] and [abc].
+//TODO: Explore adding support for [abc].
 
 //TODO: Add support for -ds option which applies d and then s. Also, option c should be supported here as well.
 Pipe Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
    std::map<char, char> translation_map;
    
-   auto it1 = pattern1.begin();
-   auto it2 = pattern2.begin();
-   for(; it1 != pattern1.end(); ++it1) {
-      if(it2 == pattern2.end()) {
-         translation_map[*it1] = pattern2.back();
+   auto expanded_pattern1 = detail::expand_tr_pattern(pattern1);
+   auto expanded_pattern2 = detail::expand_tr_pattern(pattern2);
+   
+   auto it1 = expanded_pattern1.begin();
+   auto it2 = expanded_pattern2.begin();
+   for(; it1 != expanded_pattern1.end(); ++it1) {
+      if(it2 == expanded_pattern2.end()) {
+         translation_map[*it1] = expanded_pattern2.back();
       } else {
          translation_map[*it1] = *it2;
          ++it2;
@@ -441,9 +444,11 @@ Pipe Pipe::tr(const std::string& pattern) {
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option given to Pipe.tr()");
    using GivenOptions = opt::list<Options...>;
    
+   auto expanded_pattern = detail::expand_tr_pattern(pattern);
+   
    if constexpr(GivenOptions::template contains<opt::d>()) {
-      std::function<bool(char)> match_pattern = [&pattern](char ch){
-         return pattern.find(ch) != std::string::npos;
+      std::function<bool(char)> match_pattern = [&expanded_pattern](char ch){
+         return expanded_pattern.find(ch) != std::string::npos;
       };
       
       if constexpr(GivenOptions::template contains<opt::c>()) {
@@ -455,8 +460,8 @@ Pipe Pipe::tr(const std::string& pattern) {
          line.erase(last, line.end());
       }
    } else { // Option::s
-      std::function<bool(char, char)> is_same_and_match = [&pattern](char first, char second){
-         return first == second and pattern.find(first) != std::string::npos;
+      std::function<bool(char, char)> is_same_and_match = [&expanded_pattern](char first, char second){
+         return first == second and expanded_pattern.find(first) != std::string::npos;
       };
       
       if constexpr(GivenOptions::template contains<opt::c>()) {

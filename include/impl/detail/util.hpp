@@ -39,15 +39,113 @@ std::string_view skip_whitespace(const std::string_view str) {
    return std::string_view(str.data() + idx, str.size() - idx);
 }
 
-//bool case_insensitive_cmp(const std::string_view a, const std::string_view b) {
-//   auto cmp_upper_char = [](const char a, const char b) {
-//      return std::toupper(a) == std::toupper(b);
-//   };
-//
-//   return std::equal(a.begin(), a.end(),
-//                     b.begin(), b.end(),
-//                     cmp_upper_char);
-//}
+namespace char_class {
+// These are used to mimic GNU character classes as described here:
+//    https://www.gnu.org/software/grep/manual/html_node/Character-Classes-and-Bracket-Expressions.html
+constexpr auto blank() { return " \t"; };
+constexpr auto cntrl() { return ""; };
+constexpr auto digit() { return "0123456789"; };
+constexpr auto lower() { return "abcdefghijklmnopqrstuvwxyz"; };
+constexpr auto upper() { return "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; };
+constexpr auto punct() { return "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"; };
+constexpr auto space() { return "\t\n\v\f\r "; };
+constexpr auto xdigit() { return "0123456789ABCDEFabcdef"; };
+
+}; // namespace char_class
+
+size_t expand_char_class(const std::string& pattern, std::string& dest, size_t idx) {
+   auto len = idx;
+   while(len < pattern.size() and pattern[len] != ']') {
+      ++len;
+   }
+   
+   const auto min_size = strlen("[:rune:]") - 1;
+   if(len - idx < min_size and len == pattern.size()) {
+      dest.push_back(pattern[idx]);
+   } else {
+      auto char_class = std::string_view(pattern.data() + idx + 2, len - idx - 3);
+      bool is_match = true;
+      
+      if(char_class == "alnum") {
+         dest.append(char_class::digit());
+         dest.append(char_class::upper());
+         dest.append(char_class::lower());
+      } else if(char_class == "alpha") {
+         dest.append(char_class::upper());
+         dest.append(char_class::lower());
+      } else if(char_class == "blank") {
+         dest.append(char_class::blank());
+      } else if(char_class == "digit") {
+         dest.append(char_class::digit());
+      } else if(char_class == "graph") {
+         dest.append(char_class::digit());
+         dest.append(char_class::upper());
+         dest.append(char_class::lower());
+         dest.append(char_class::punct());
+      } else if(char_class == "lower") {
+         dest.append(char_class::lower());
+      } else if(char_class == "print") {
+         dest.append(char_class::digit());
+         dest.append(char_class::upper());
+         dest.append(char_class::lower());
+         dest.append(char_class::punct());
+         dest.append(char_class::space());
+      } else if(char_class == "punct") {
+         dest.append(char_class::punct());
+      } else if(char_class == "space") {
+         dest.append(char_class::space());
+      } else if(char_class == "upper") {
+         dest.append(char_class::upper());
+      } else if(char_class == "xdigit") {
+         dest.append(char_class::xdigit());
+      } else {
+         is_match = false;
+         dest.push_back(pattern[idx]);
+      }
+      
+      if(is_match) idx += len;
+   }
+   
+   return idx;
+}
+
+std::string expand_tr_pattern(const std::string& str) {
+   std::string expanded_str;
+   expanded_str.reserve(str.size());
+   
+   for(size_t i = 0; i < str.size(); ++i) {
+      switch(str[i]) {
+         case '\\':
+            ++i;
+            if(i < str.size())
+               expanded_str.push_back(str[i]);
+            break;
+         case '[':
+            i = expand_char_class(str, expanded_str, i);
+            break;
+         case '-': //Expand range
+            if(0 < i - 1 and i + 1 < str.size()) {
+               char first = str[i-1];
+               char last = str[i+1];
+               
+               if(first < last) {
+                  for(++first; first <= last; ++first) {
+                     expanded_str.push_back(first);
+                  }
+                  ++i;
+                  break;
+               }
+            }
+            [[fallthrough]];
+         default:
+            expanded_str.push_back(str[i]);
+            break;
+      }
+   }
+   
+   return expanded_str;
+}
+
 //
 //template <typename iter>
 //iter consume_whitespace(iter begin, iter end) {
