@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <memory>
 
 #include "option.hpp"
 
@@ -50,57 +51,76 @@ public:
 //
 // Or with multiple files at once.
 // Ex. sh::Pipe(is) | sh::Tee("example.txt", "another.txt", "one_more.txt");
-template <typename option = opt::none>
 class Tee {
 public:
-   template <typename... Filenames>
-   Tee(Filenames... files) : _out(std::cout) {
-      (add_ofstream(files), ...);
+   template <typename option = opt::none>
+   Tee(const std::string& filename) {
+      data = std::make_shared<Data>();
+      add<option>(filename);
    }
-   template <typename... Filenames>
-   Tee(std::ostream& os, Filenames... files) : _out(os) {
-      (add_ofstream(files), ...);
+   
+   Tee(std::ostream& stream) {
+      data = std::make_shared<Data>();
+      add(stream);
    }
    ~Tee() = default;
    
    //
    // Operators
    //
-   void operator<<(const std::string& str) {
-      _out << str;
+   
+   template <typename T>
+   Tee operator<<(const T& t) {
+      for(auto& out : data->ostreams)
+         out.get() << t;
       
-      for(auto& outfile : _outfiles)
-         outfile << str;
+      for(auto& out : data->ofstreams)
+         out << t;
+      
+      return *this;
    }
    
-   void operator<<(const char ch) {
-      _out << ch;
-      
-      for(auto& outfile : _outfiles)
-         outfile << ch;
-   }
-
-private:
    //
-   // Init
+   // Add
    //
-   void add_ofstream(const std::string& file) {
+   
+   template <typename option = opt::none>
+   Tee add(const std::string& file) {
       if constexpr(std::is_same_v<option, opt::a>) {
          std::ofstream outfile(file, std::ios::out | std::ios::app);
          if(outfile.is_open())
-            _outfiles.push_back(std::move(outfile));
+            data->ofstreams.push_back(std::move(outfile));
       } else {
          std::ofstream outfile(file);
          if(outfile.is_open())
-            _outfiles.push_back(std::move(outfile));
+            data->ofstreams.push_back(std::move(outfile));
       }
+      
+      return *this;
    }
+   
+   Tee add(std::ostream& stream) {
+      data->ostreams.push_back(std::ref(stream));
+      
+      return *this;
+   }
+
+private:
+   
+   //
+   // Data Class
+   //
+   
+   struct Data {
+      std::vector<std::reference_wrapper<std::ostream>> ostreams;
+      std::vector<std::ofstream> ofstreams;
+   };
    
    //
    // Variables
    //
-   std::ostream& _out;
-   std::vector<std::ofstream> _outfiles;
+   
+   std::shared_ptr<Data> data;
 };
 
 } // namespace pipe

@@ -15,6 +15,8 @@ namespace pipe {
 // Cat command
 //
 
+// TODO: Add -s option that squeezes empty lines. This should probably get added as
+// a Pipe helper and then added to Builder as well.
 template <typename option = opt::none>
 Pipe cat(std::initializer_list<std::string> filenames) {
    using AllowedOptions = opt::list<opt::none, opt::n, opt::b>;
@@ -72,7 +74,7 @@ Pipe stream(IStream& ...inputs) {
    static_assert((std::is_base_of_v<std::istream, IStream> and ...), "Unknown parameters passed to stream()");
    
    auto builder = Builder();
-   (builder.append(inputs) and ...);
+   ((builder.append(inputs)), ...);
    return builder.build();
 }
 

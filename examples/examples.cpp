@@ -5,14 +5,18 @@
 #include <iostream>
 
 int main(int argc, const char * argv[]) {
-   pipe::cat<opt::n>("alice-in-wonderland.txt").grep("Alice").tail() | std::cout;
+   auto tee = pipe::Tee(std::cout).add("out.txt");
+   pipe::cat<opt::n>("alice-in-wonderland.txt").grep("Alice").tail() | tee;
+
+   tee << "Hello World!\n" << '\n';
    
    std::cout << '\n';
-   
+
    pipe::echo("   zello\nhello\nhello\nworld\nworld").tr<opt::s>("l").fold() | std::cout;
-   
+
    std::cout << '\n';
-   
-   std::istringstream in2("hel&&lo\n&&&HELLO\nhell&&&o\nzorld\n&&world\nWorld");
-   pipe::stream(in2).uniq().sort<opt::f, opt::d, opt::s>().grep<opt::i>("world").tr("[:lower:]", "[:upper:]") | std::cout;
+
+   std::istringstream in1("hel&&lo\n&&&HELLO\n&&&HELLO\nhell&&&o\nzorld\n&&world\nWorld");
+   std::istringstream in2("next");
+   pipe::stream(in1, in2).uniq().tr("[:lower:]", "[:upper:]") | std::cout;
 }

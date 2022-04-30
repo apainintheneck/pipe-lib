@@ -43,8 +43,7 @@ public:
    // Append to ostream.
    void operator|(std::ostream& os);
    // Pipe to Tee (append or write options specified in Tee class).
-   template<typename tee_option>
-   void operator|(Tee<tee_option>& tee);
+   void operator|(Tee& tee);
    
    /*
     
@@ -67,9 +66,9 @@ public:
    //
    
    template <typename option>
-   Pipe fold();
+   Pipe& fold();
    template <typename ...Options>
-   Pipe fold(const size_t len);
+   Pipe& fold(const size_t len);
    
    //
    // Grep
@@ -79,20 +78,32 @@ public:
    // Option::i - Ignore case
    // Option::E - egrep (extended grep)
    template <typename ...Options>
-   Pipe grep(const std::string& pattern);
+   Pipe& grep(const std::string& pattern);
    
    //
    // Head
    //
    
    // Defaults to retaining the top 10 lines.
-   Pipe head();
+   Pipe& head();
    // Option::n - Retains the top x lines. [Base case]
    template <typename option>
-   Pipe head(const size_t count);
+   Pipe& head(const size_t count);
    // Option::c - Retains the top x bytes.
    template <>
-   Pipe head<opt::c>(const size_t count);
+   Pipe& head<opt::c>(const size_t count);
+   
+   //
+   // Paste
+   //
+   
+   // TODO: Add -s option.
+   
+   // Default combine two pipes line-by-line with the tab character
+   Pipe& paste(const Pipe& pipe);
+   // Option::d takes a list of separators which are used instead of tab
+   template <typename option>
+   Pipe& paste(const std::string& separators, const Pipe& pipe);
    
    //
    // Sort
@@ -102,23 +113,23 @@ public:
    
    // Default lexical sort. [Base case]
    template <typename ...Options>
-   Pipe sort();
+   Pipe& sort();
    // Option::m - Merge two selected ranges by comparator.
    template <typename ...Options>
-   Pipe sort(const Pipe& other);
+   Pipe& sort(const Pipe& other);
    
    //
    // Tail
    //
    
    // Defaults to retaining the bottom 10 lines.
-   Pipe tail();
+   Pipe& tail();
    // Option::n - Retains the bottom x lines. [Base case]
    template <typename option>
-   Pipe tail(const size_t count);
+   Pipe& tail(const size_t count);
    // Option::c - Retains the bottom x bytes.
    template <>
-   Pipe tail<opt::c>(const size_t count);
+   Pipe& tail<opt::c>(const size_t count);
    
    //
    // Tr
@@ -126,14 +137,14 @@ public:
    
    // Defaults to translating characters from pattern1 to pattern2
    // based upon their position.
-   Pipe tr(const std::string& pattern1, const std::string& pattern2);
+   Pipe& tr(const std::string& pattern1, const std::string& pattern2);
    // Covers the one argument uses of the tr cmd.
    // Requires Option::d or Option::s with optional Option::c
    // Option::d - Deletes matching characters
    // Option::s - Squeezes adjacent matching characters (like unique but only for matching chars).
    // Option::c - Use the compliment of the given pattern.
    template <typename ...Options>
-   Pipe tr(const std::string& pattern);
+   Pipe& tr(const std::string& pattern);
    
    //
    // Uniq
@@ -143,16 +154,16 @@ public:
    
    // Defaults to removing adjacent duplicate lines. [Base case]
    template <typename option>
-   Pipe uniq();
+   Pipe& uniq();
    // Option::c - Prefix a count of the frequency of each line.
    template <>
-   Pipe uniq<opt::c>();
+   Pipe& uniq<opt::c>();
    // Option::d - Only retain duplicate lines.
    template <>
-   Pipe uniq<opt::d>();
+   Pipe& uniq<opt::d>();
    // Option::d - Only retain unique lines.
    template <>
-   Pipe uniq<opt::u>();
+   Pipe& uniq<opt::u>();
    
 private:
    Pipe() = default;
@@ -224,11 +235,9 @@ void Pipe::operator|(std::ostream& os) {
    pipe_to(os);
 }
 
-template<typename tee_option>
-void Pipe::operator|(Tee<tee_option>& tee) {
+void Pipe::operator|(Tee& tee) {
    for(const auto& line : lines) {
-      tee << line;
-      tee << '\n';
+      tee << line << '\n';
    }
 }
 
@@ -243,7 +252,7 @@ void Pipe::operator|(Tee<tee_option>& tee) {
 //
 
 template <typename ...Options>
-Pipe Pipe::fold(const size_t len) {
+Pipe& Pipe::fold(const size_t len) {
    using AllowedOptions = opt::list<opt::w, opt::s, opt::none>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.fold()");
    using GivenOptions = opt::list<Options...>;
@@ -278,7 +287,7 @@ Pipe Pipe::fold(const size_t len) {
 }
 
 template <typename option = opt::none>
-Pipe Pipe::fold() {
+Pipe& Pipe::fold() {
    using AllowedOptions = opt::list<opt::none, opt::s>;
    static_assert(AllowedOptions::contains<option>(), "Unknown option passed to Pipe.fold()");
    
@@ -290,7 +299,7 @@ Pipe Pipe::fold() {
 //
 
 template <typename ...Options>
-Pipe Pipe::grep(const std::string& pattern) {
+Pipe& Pipe::grep(const std::string& pattern) {
    using AllowedOptions = opt::list<opt::i, opt::E>;
    static_assert(AllowedOptions::template contains_all<Options...>(), "Unknown option passed to Pipe.grep()");
    using GivenOptions = opt::list<Options...>;
@@ -323,8 +332,12 @@ Pipe Pipe::grep(const std::string& pattern) {
 // Head
 //
 
+Pipe& Pipe::head() {
+   return this->head<opt::n>(10);
+}
+
 template <typename option>
-Pipe Pipe::head(const size_t count) {
+Pipe& Pipe::head(const size_t count) {
    static_assert(std::is_same_v<option, opt::n>, "Unknown option given to Pipe.head()");
 
    if(lines.size() > count)
@@ -333,12 +346,8 @@ Pipe Pipe::head(const size_t count) {
    return *this;
 }
 
-Pipe Pipe::head() {
-   return this->head<opt::n>(10);
-}
-
 template <>
-Pipe Pipe::head<opt::c>(const size_t count) {
+Pipe& Pipe::head<opt::c>(const size_t count) {
    if(count == 0) {
       lines.clear();
       return *this;
@@ -367,11 +376,40 @@ Pipe Pipe::head<opt::c>(const size_t count) {
 }
 
 //
+// Paste
+//
+
+Pipe& Pipe::paste(const Pipe& pipe) {
+   return this->paste<opt::d>("\t", pipe);
+}
+
+template <typename option>
+Pipe& Pipe::paste(const std::string& separators, const Pipe& other) {
+   static_assert(std::is_same_v<option, opt::d>, "Unknown option passed to Pipe.paste()");
+   
+   size_t line_num = 0;
+   for(const auto& new_line : other.lines) {
+      if(line_num < lines.size()) {
+         lines[line_num].append(separators[line_num % separators.size()] + new_line);
+      } else {
+         lines.push_back('\t' + new_line);
+      }
+      
+      ++line_num;
+   }
+   
+   for(; line_num < lines.size(); ++line_num)
+      lines[line_num].push_back('\t');
+   
+   return *this;
+}
+
+//
 // Sort
 //
 
 template <typename ...Options>
-Pipe Pipe::sort() {
+Pipe& Pipe::sort() {
    using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::r, opt::s, opt::u>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
    using GivenOptions = opt::list<Options...>;
@@ -392,7 +430,7 @@ Pipe Pipe::sort() {
 
 // Implementation of the merge option (-m)
 template <typename ...Options>
-Pipe Pipe::sort(const Pipe& other) {
+Pipe& Pipe::sort(const Pipe& other) {
    using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::m, opt::r, opt::s, opt::u>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
    using GivenOptions = opt::list<Options...>;
@@ -411,8 +449,13 @@ Pipe Pipe::sort(const Pipe& other) {
 //
 // Tail
 //
+
+Pipe& Pipe::tail() {
+   return this->tail<opt::n>(10);
+}
+
 template <typename option>
-Pipe Pipe::tail(const size_t count) {
+Pipe& Pipe::tail(const size_t count) {
    static_assert(std::is_same_v<option, opt::n>, "Unknown option given to Pipe.tail()");
 
    if(lines.size() > count)
@@ -421,12 +464,8 @@ Pipe Pipe::tail(const size_t count) {
    return *this;
 }
 
-Pipe Pipe::tail() {
-   return this->tail<opt::n>(10);
-}
-
 template <>
-Pipe Pipe::tail<opt::c>(const size_t count) {
+Pipe& Pipe::tail<opt::c>(const size_t count) {
    if(count == 0) {
       lines.clear();
       return *this;
@@ -461,7 +500,7 @@ Pipe Pipe::tail<opt::c>(const size_t count) {
 //TODO: Explore adding support for [abc].
 
 //TODO: Add support for -ds option which applies d and then s. Also, option c should be supported here as well.
-Pipe Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
+Pipe& Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
    std::map<char, char> translation_map;
    
    auto expanded_pattern1 = detail::expand_tr_pattern(pattern1);
@@ -490,7 +529,7 @@ Pipe Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
 }
 
 template <typename ...Options>
-Pipe Pipe::tr(const std::string& pattern) {
+Pipe& Pipe::tr(const std::string& pattern) {
    using RequiredOptions = opt::list<opt::d, opt::s>;
    static_assert(RequiredOptions::contains_any<Options...>(), "Pipe.tr() missing required option -d or -s");
    using AllowedOptions = opt::list<opt::d, opt::s, opt::c>;
@@ -535,7 +574,7 @@ Pipe Pipe::tr(const std::string& pattern) {
 //
 
 template <typename option = opt::none>
-Pipe Pipe::uniq() {
+Pipe& Pipe::uniq() {
    static_assert(std::is_same_v<option, opt::none>, "Unknown option given to Pipe.uniq()");
    
    if(not lines.empty()) {
@@ -547,7 +586,7 @@ Pipe Pipe::uniq() {
 }
 
 template <>
-Pipe Pipe::uniq<opt::c>() {
+Pipe& Pipe::uniq<opt::c>() {
    if(lines.empty()) {
       return *this;
    }
@@ -580,7 +619,7 @@ Pipe Pipe::uniq<opt::c>() {
 }
 
 template <>
-Pipe Pipe::uniq<opt::d>() {
+Pipe& Pipe::uniq<opt::d>() {
    if(lines.empty()) {
       return *this;
    }
@@ -606,7 +645,7 @@ Pipe Pipe::uniq<opt::d>() {
 }
 
 template <>
-Pipe Pipe::uniq<opt::u>() {
+Pipe& Pipe::uniq<opt::u>() {
    if(lines.empty()) {
       return *this;
    }
@@ -796,6 +835,7 @@ Pipe::StringCmp Pipe::sort_cmp() {
 //
 // Output
 //
+
 void Pipe::pipe_to(std::ostream& os) {
    for(const auto& line : lines)
       os << line << '\n';
