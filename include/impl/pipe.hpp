@@ -48,6 +48,16 @@ public:
    
    /*
     
+    Utils
+    
+    */
+   
+   // Number of lines in pipe.
+   size_t size() const { return lines.size(); }
+   size_t length() const { return lines.size(); }
+   
+   /*
+    
     Pipe Filters
     
     */
@@ -130,18 +140,6 @@ public:
    // Option::d - Only retain unique lines.
    template <>
    Pipe uniq<opt::u>();
-   
-   //
-   // WC - Word Count
-   //
-   
-   // Takes options c, l, m and w.
-   // Option::c - Byte count
-   // Option::m - Char count
-   // Option::l - Line count
-   // Option::w - Word count
-   template <typename ...Options>
-   Pipe wc();
    
 private:
    Pipe() = default;
@@ -311,7 +309,7 @@ Pipe Pipe::head<opt::c>(const size_t count) {
 }
 
 //
-// Sorhs
+// Sort
 //
 
 template <typename ...Options>
@@ -567,59 +565,6 @@ Pipe Pipe::uniq<opt::u>() {
    }
    
    lines.erase(last, lines.end());
-   
-   return *this;
-}
-
-//
-// WC - Word Count
-//
-
-template <typename ...Options>
-Pipe Pipe::wc() {
-   using AllowedOptions = opt::list<opt::c, opt::l, opt::m, opt::w>;
-   using GivenOptions = opt::list<Options...>;
-   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option given to Pipe.wc()");
-   
-   // Count chars, words and lines
-   size_t num_chars{}, num_words{};
-   const auto num_lines = lines.size();
-   for(const auto& line : lines) {
-      num_chars += line.size();
-      
-      // Count words in line
-      auto it = line.begin();
-      while(it != line.end()) {
-         // Consume whitespace
-         while(it != line.end() and std::isspace(*it))
-            ++it;
-         
-         if(it != line.end())
-            ++num_words;
-         
-         // Consume word
-         while(it != line.end() and not std::isspace(*it))
-            ++it;
-      }
-   }
-   
-   lines.clear();
-   
-   // Add results as string to output using the original
-   // format of lines, words and chars.
-   const int width = 8;
-   std::string line;
-   if constexpr(GivenOptions::empty() or GivenOptions::template contains<opt::l>()) {
-      line += detail::pad_left(num_lines, width);
-   }
-   if constexpr(GivenOptions::empty() or GivenOptions::template contains<opt::w>()) {
-      line += detail::pad_left(num_words, width);
-   }
-   if constexpr(GivenOptions::empty() or GivenOptions::template contains_any<opt::c, opt::m>()) {
-      line += detail::pad_left(num_chars, width);
-   }
-   
-   lines.push_back(line);
    
    return *this;
 }
