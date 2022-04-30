@@ -26,6 +26,17 @@ std::string pad_left(std::string&& str, const size_t width) {
       : str;
 }
 
+unsigned short count_digits(size_t num) {
+   unsigned short count = 0;
+   
+   while(num > 0) {
+      ++count;
+      num /= 10;
+   }
+   
+   return count;
+}
+
 template <typename T>
 std::string pad_left(const T value, const size_t width) {
    return pad_left(std::to_string(value), width);
@@ -37,6 +48,26 @@ std::string_view skip_whitespace(const std::string_view str) {
       ++idx;
    
    return std::string_view(str.data() + idx, str.size() - idx);
+}
+
+size_t line_len(std::string::const_iterator begin, std::string::const_iterator end, const size_t max_len) {
+   size_t count = 0;
+   while(begin != end and count < max_len) {
+      count += (*begin == '\t') ? 8 : 1;
+      ++begin;
+   }
+   return count;
+}
+
+size_t line_len_with_end_blank(std::string::const_iterator begin, std::string::const_iterator end, const size_t max_len) {
+   size_t count = 0;
+   size_t last_blank = 0;
+   while(begin != end and count < max_len) {
+      count += (*begin == '\t') ? 8 : 1;
+      if(std::isspace(*begin)) last_blank = count;
+      ++begin;
+   }
+   return last_blank;
 }
 
 namespace char_class {

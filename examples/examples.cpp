@@ -6,7 +6,7 @@
 
 int main(int argc, const char * argv[]) {
    std::istringstream in1("   zello\nhello\nhello\nworld\nworld");
-   pipe::stream(in1).tr<opt::s>("l") | std::cout;
+   pipe::stream(in1).tr<opt::s>("l").fold() | std::cout;
    
    std::cout << '\n';
    

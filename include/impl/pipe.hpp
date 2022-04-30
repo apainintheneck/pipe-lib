@@ -63,6 +63,15 @@ public:
     */
    
    //
+   // Fold
+   //
+   
+   template <typename option>
+   Pipe fold();
+   template <typename ...Options>
+   Pipe fold(const size_t len);
+   
+   //
    // Grep
    //
    
@@ -88,6 +97,8 @@ public:
    //
    // Sort
    //
+   
+   // TODO: Add more sort options.
    
    // Default lexical sort. [Base case]
    template <typename ...Options>
@@ -127,6 +138,8 @@ public:
    //
    // Uniq
    //
+   
+   // TODO: Add -i, -s and - f options as well.
    
    // Defaults to removing adjacent duplicate lines. [Base case]
    template <typename option>
@@ -222,6 +235,79 @@ void Pipe::operator|(Tee<tee_option>& tee) {
  Pipe Filters
  
  */
+
+//
+// Fold
+//
+
+template <typename option = opt::none>
+Pipe Pipe::fold() {
+   using AllowedOptions = opt::list<opt::none, opt::s>;
+   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to Pipe.fold()");
+   
+   const size_t len = 80;
+   size_t end;
+   std::vector<std::string> new_lines;
+   new_lines.reserve(lines.size() * 2); // just a random number here
+   
+   for(auto& line : lines) {
+      if(line.size() <= len) {
+         new_lines.push_back(std::move(line));
+      } else {
+         size_t start = 0;
+         
+         while(start < line.size()) {
+            if constexpr(std::is_same_v<option, opt::s>) {
+               end = detail::line_len_with_end_blank(line.cbegin(), line.cend(), len);
+            } else {
+               end = detail::line_len(line.cbegin(), line.cend(), len);
+            }
+            
+            new_lines.push_back(line.substr(start, end));
+            start += len;
+         }
+      }
+   }
+   
+   std::swap(lines, new_lines);
+   
+   return *this;
+}
+
+template <typename ...Options>
+Pipe Pipe::fold(const size_t len) {
+   using AllowedOptions = opt::list<opt::w, opt::s>;
+   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.fold()");
+   using GivenOptions = opt::list<Options...>;
+   static_assert(AllowedOptions::contains<opt::w>(), "Missing option -w with call to Pipe.fold()");
+   
+   size_t end;
+   std::vector<std::string> new_lines;
+   new_lines.reserve(lines.size() * 2); // just a random number here
+   
+   for(auto& line : lines) {
+      if(line.size() <= len) {
+         new_lines.push_back(std::move(line));
+      } else {
+         size_t start = 0;
+         
+         while(start < line.size()) {
+            if constexpr(GivenOptions::template contains<opt::s>()) {
+               end = detail::line_len_with_end_blank(line.cbegin(), line.cend(), len);
+            } else {
+               end = detail::line_len(line.cbegin(), line.cend(), len);
+            }
+            
+            new_lines.push_back(line.substr(start, end));
+            start += len;
+         }
+      }
+   }
+   
+   std::swap(lines, new_lines);
+   
+   return *this;
+}
 
 //
 // Grep
@@ -496,14 +582,13 @@ Pipe Pipe::uniq<opt::c>() {
    if(lines.empty()) {
       return *this;
    }
+   std::vector<unsigned short> freq_list;
    
    auto last = lines.begin();
    auto curr = last;
    while(curr != lines.end()) {
       auto next = detail::find_next_diff(curr, lines.end());
-      auto freq = std::distance(curr, next);
-      
-      curr->insert(0, detail::pad_left(freq, 4) + " ");
+      freq_list.push_back(std::distance(curr, next));
       
       if(curr != last)
          std::iter_swap(curr, last);
@@ -513,6 +598,14 @@ Pipe Pipe::uniq<opt::c>() {
    }
    
    lines.erase(last, lines.end());
+   
+   auto width = detail::count_digits(*std::max_element(freq_list.begin(), freq_list.end()));
+   
+   auto freq_it = freq_list.begin();
+   for(auto& line : lines) {
+      line.insert(0, detail::pad_left(*freq_it, width) + " ");
+      ++freq_it;
+   }
    
    return *this;
 }
@@ -585,7 +678,7 @@ void Pipe::append(std::istream& in) {
 // Helpers
 //
 void Pipe::number_lines(const bool skip_blank = false) {
-   const short width = 4;
+   const short width = detail::count_digits(lines.size());
    size_t i = 1;
    
    if(skip_blank) {
