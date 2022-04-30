@@ -5,8 +5,11 @@
 #include <iostream>
 
 int main(int argc, const char * argv[]) {
-   std::istringstream in1("   zello\nhello\nhello\nworld\nworld");
-   pipe::stream(in1).tr<opt::s>("l").fold() | std::cout;
+   pipe::cat<opt::n>("alice-in-wonderland.txt").grep("Alice").tail() | std::cout;
+   
+   std::cout << '\n';
+   
+   pipe::echo("   zello\nhello\nhello\nworld\nworld").tr<opt::s>("l").fold() | std::cout;
    
    std::cout << '\n';
    

@@ -21,7 +21,6 @@ While awk and sed options exist in the std::regex library they don't behave the 
 ## TODO:
 sed
 cut
-fold
 join
 paste
 - Update current commands and add additional options

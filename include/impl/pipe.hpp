@@ -169,7 +169,9 @@ private:
    //
    
    // Number all lines in lines vector.
-   void number_lines(const bool skip_blank);
+   void number_lines();
+   // Number all non blank lines in lines vector.
+   void number_non_blank_lines();
    // Return total number of chars in all lines.
    size_t char_count() const;
    // Merge two sorted Pipes.
@@ -240,46 +242,12 @@ void Pipe::operator|(Tee<tee_option>& tee) {
 // Fold
 //
 
-template <typename option = opt::none>
-Pipe Pipe::fold() {
-   using AllowedOptions = opt::list<opt::none, opt::s>;
-   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to Pipe.fold()");
-   
-   const size_t len = 80;
-   size_t end;
-   std::vector<std::string> new_lines;
-   new_lines.reserve(lines.size() * 2); // just a random number here
-   
-   for(auto& line : lines) {
-      if(line.size() <= len) {
-         new_lines.push_back(std::move(line));
-      } else {
-         size_t start = 0;
-         
-         while(start < line.size()) {
-            if constexpr(std::is_same_v<option, opt::s>) {
-               end = detail::line_len_with_end_blank(line.cbegin(), line.cend(), len);
-            } else {
-               end = detail::line_len(line.cbegin(), line.cend(), len);
-            }
-            
-            new_lines.push_back(line.substr(start, end));
-            start += len;
-         }
-      }
-   }
-   
-   std::swap(lines, new_lines);
-   
-   return *this;
-}
-
 template <typename ...Options>
 Pipe Pipe::fold(const size_t len) {
-   using AllowedOptions = opt::list<opt::w, opt::s>;
+   using AllowedOptions = opt::list<opt::w, opt::s, opt::none>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.fold()");
    using GivenOptions = opt::list<Options...>;
-   static_assert(AllowedOptions::contains<opt::w>(), "Missing option -w with call to Pipe.fold()");
+   static_assert(AllowedOptions::contains<opt::w>(), "Missing option -w with call to Pipe.fold() with custom length");
    
    size_t end;
    std::vector<std::string> new_lines;
@@ -307,6 +275,14 @@ Pipe Pipe::fold(const size_t len) {
    std::swap(lines, new_lines);
    
    return *this;
+}
+
+template <typename option = opt::none>
+Pipe Pipe::fold() {
+   using AllowedOptions = opt::list<opt::none, opt::s>;
+   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to Pipe.fold()");
+   
+   return this->fold<opt::w, option>(80);
 }
 
 //
@@ -347,14 +323,6 @@ Pipe Pipe::grep(const std::string& pattern) {
 // Head
 //
 
-Pipe Pipe::head() {
-   const uint8_t count = 10;
-   if(lines.size() > count)
-      lines.resize(count);
-
-   return *this;
-}
-
 template <typename option>
 Pipe Pipe::head(const size_t count) {
    static_assert(std::is_same_v<option, opt::n>, "Unknown option given to Pipe.head()");
@@ -363,6 +331,10 @@ Pipe Pipe::head(const size_t count) {
       lines.resize(count);
 
    return *this;
+}
+
+Pipe Pipe::head() {
+   return this->head<opt::n>(10);
 }
 
 template <>
@@ -418,12 +390,13 @@ Pipe Pipe::sort() {
    return *this;
 }
 
+// Implementation of the merge option (-m)
 template <typename ...Options>
 Pipe Pipe::sort(const Pipe& other) {
    using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::m, opt::r, opt::s, opt::u>;
    static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
    using GivenOptions = opt::list<Options...>;
-   static_assert(GivenOptions::template contains<opt::m>(), "-m option required for Pipe.sort() merge method");
+   static_assert(GivenOptions::template contains<opt::m>(), "Missing option -m with call to Pipe.sort() merge method");
    
    std::swap(lines, merge(this, other, sort_cmp<Options...>()));
    
@@ -438,14 +411,6 @@ Pipe Pipe::sort(const Pipe& other) {
 //
 // Tail
 //
-Pipe Pipe::tail() {
-   const uint8_t count = 10;
-   if(lines.size() > count)
-      lines = std::vector(lines.end() - count, lines.end());
-   
-   return *this;
-}
-
 template <typename option>
 Pipe Pipe::tail(const size_t count) {
    static_assert(std::is_same_v<option, opt::n>, "Unknown option given to Pipe.tail()");
@@ -454,6 +419,10 @@ Pipe Pipe::tail(const size_t count) {
       lines = std::vector(lines.end() - count, lines.end());
 
    return *this;
+}
+
+Pipe Pipe::tail() {
+   return this->tail<opt::n>(10);
 }
 
 template <>
@@ -667,6 +636,7 @@ Pipe Pipe::uniq<opt::u>() {
 //
 // Init
 //
+
 void Pipe::append(std::istream& in) {
    std::string buffer;
    while(std::getline(in, buffer)) {
@@ -677,26 +647,30 @@ void Pipe::append(std::istream& in) {
 //
 // Helpers
 //
-void Pipe::number_lines(const bool skip_blank = false) {
+
+void Pipe::number_lines() {
    const short width = detail::count_digits(lines.size());
    size_t i = 1;
    
-   if(skip_blank) {
-      const auto blank_indent = std::string(width + 1, ' ');
-      
-      for(auto& line : lines) {
-         if(not line.empty()) {
-            line.insert(0, detail::pad_left(i, width) + " ");
-         } else {
-            line.insert(0, blank_indent);
-         }
-         ++i;
-      }
-   } else {
-      for(auto& line : lines) {
+   for(auto& line : lines) {
+      line.insert(0, detail::pad_left(i, width) + " ");
+      ++i;
+   }
+}
+
+void Pipe::number_non_blank_lines() {
+   const short width = detail::count_digits(lines.size());
+   size_t i = 1;
+   
+   const auto blank_indent = std::string(width + 1, ' ');
+   
+   for(auto& line : lines) {
+      if(not line.empty()) {
          line.insert(0, detail::pad_left(i, width) + " ");
-         ++i;
+      } else {
+         line.insert(0, blank_indent);
       }
+      ++i;
    }
 }
 
@@ -723,6 +697,7 @@ Pipe::StringCmp Pipe::sort_cmp() {
    Pipe::StringCmp cmp;
    
    if constexpr(GivenOptions::template contains_all<opt::d, opt::f>()) {
+      // Case insensitive dictionary compare (only compare uppercase alnum characters or blank spaces)
       cmp = [](const std::string_view lhs, const std::string_view rhs) {
          auto lhs_it = lhs.begin();
          auto rhs_it = rhs.begin();
@@ -752,6 +727,7 @@ Pipe::StringCmp Pipe::sort_cmp() {
          }
       };
    } else if constexpr(GivenOptions::template contains<opt::d>()) {
+      // Dictionary order compare (only compare blank spaces and alnum characters)
       cmp = [](const std::string_view lhs, const std::string_view rhs) {
          auto lhs_it = lhs.begin();
          auto rhs_it = rhs.begin();
@@ -779,6 +755,7 @@ Pipe::StringCmp Pipe::sort_cmp() {
          }
       };
    } else if constexpr(GivenOptions::template contains<opt::f>()) {
+      // Case insensitive compare (everything converted to uppercase)
       cmp = [](const std::string_view lhs, const std::string_view rhs) {
          auto lhs_it = lhs.begin();
          auto rhs_it = rhs.begin();
@@ -802,12 +779,14 @@ Pipe::StringCmp Pipe::sort_cmp() {
    }
    
    if constexpr(GivenOptions::template contains<opt::b>()) {
+      // Skip leading whitespace before comparing
       cmp = [cmp](const std::string_view lhs, const std::string_view rhs) {
          return cmp(detail::skip_whitespace(lhs), detail::skip_whitespace(rhs));
       };
    }
    
    if constexpr(GivenOptions::template contains<opt::r>()) {
+      // Sort in reverse order (negate the compare function)
       cmp = std::not_fn(cmp);
    }
    

@@ -14,14 +14,12 @@ namespace pipe {
 //
 // Cat command
 //
-template <typename option = opt::none>
-Pipe cat(const std::string& filename) {
-   return cat<option>({filename});
-}
 
 template <typename option = opt::none>
 Pipe cat(std::initializer_list<std::string> filenames) {
-   static_assert(std::is_same_v<opt::none, option>, "Unknown option passed to cat()");
+   using AllowedOptions = opt::list<opt::none, opt::n, opt::b>;
+   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to cat()");
+   if(filenames.size() == 0) return Builder().build();
    
    auto builder = Builder();
    
@@ -30,74 +28,40 @@ Pipe cat(std::initializer_list<std::string> filenames) {
       
       if(file.is_open())
          builder.append(file);
+   }
+   
+   if constexpr(std::is_same_v<option, opt::n>) {
+      builder.number_lines();
+   } else if constexpr(std::is_same_v<option, opt::b>) {
+      builder.number_non_blank_lines();
    }
    
    return builder.build();
 }
 
-template <>
-Pipe cat<opt::n>(std::initializer_list<std::string> filenames) {
-   auto builder = Builder();
-   
-   for(const auto& filename : filenames) {
-      std::ifstream file(filename);
-      
-      if(file.is_open())
-         builder.append(file);
-   }
-   
-   builder.number_lines();
-   
-   return builder.build();
-}
-
-template <>
-Pipe cat<opt::b>(std::initializer_list<std::string> filenames) {
-   auto builder = Builder();
-   
-   for(const auto& filename : filenames) {
-      std::ifstream file(filename);
-      
-      if(file.is_open())
-         builder.append(file);
-   }
-   
-   builder.number_lines(true);
-   
-   return builder.build();
+template <typename option = opt::none>
+Pipe cat(const std::string& filename) {
+   return cat<option>(std::initializer_list<std::string>{filename});
 }
 
 //
 // Echo command
 //
-template <typename option = opt::none>
-Pipe echo(const std::string& str) {
-   return echo<option>({str});
-}
 
-template <typename option = opt::none>
 Pipe echo(std::initializer_list<std::string> strs) {
-   static_assert(std::is_same_v<opt::none, option>, "Unknown option passed to echo()");
+   if(strs.size() == 0) return Builder().build();
    
-   std::istringstream input(std::accumulate(strs.begin(), strs.end(), std::string()));
+   const auto concat_with_space = [](std::string a, std::string b) { return a + "" + b; };
+   auto concat_strs = std::accumulate(strs.begin() + 1, strs.end(), *strs.begin(), concat_with_space);
+   std::istringstream input(concat_strs);
    
    auto builder = Builder();
    builder.append(input);
    return builder.build();
 }
 
-template <>
-Pipe echo<opt::n>(std::initializer_list<std::string> strs) {
-   if(strs.size() > 0) {
-      const auto concat_with_newline = [](std::string a, std::string b) { return a + "\n" + b; };
-      std::istringstream input(std::accumulate(strs.begin() + 1, strs.end(), *strs.begin(), concat_with_newline));
-      
-      auto builder = Builder();
-      builder.append(input);
-      return builder.build();
-   } else {
-      return Builder().build();
-   }
+Pipe echo(const std::string& str) {
+   return echo(std::initializer_list<std::string>{str});
 }
 
 //
