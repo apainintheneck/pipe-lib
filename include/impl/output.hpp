@@ -46,22 +46,22 @@ public:
 //
 // It can be used with one file and an outuput stream (the default is std::cout).
 // Ex. sh::Pipe(is) | sh::Tee("example.txt"); // Overwrite example
-// Ex. sh::Pipe(is) | sh::Tee(os, "example.txt"); // Explicit ostream example
+// Ex. sh::Pipe(is) | sh::Tee("example.txt"); // Explicit ostream example
 // Ex. sh::Pipe(is) | sh::Tee<opt::a>("example.txt"); // Append example
 //
 // Or with multiple files at once.
-// Ex. sh::Pipe(is) | sh::Tee("example.txt", "another.txt", "one_more.txt");
+// Ex. sh::Pipe(is) | sh::Tee("example.txt").add(std::cout).add("another.txt");
 class Tee {
 public:
    template <typename option = opt::none>
    Tee(const std::string& filename) {
       data = std::make_shared<Data>();
-      add<option>(filename);
+      add_impl<option>(filename);
    }
    
    Tee(std::ostream& stream) {
       data = std::make_shared<Data>();
-      add(stream);
+      add_impl(stream);
    }
    ~Tee() = default;
    
@@ -86,21 +86,22 @@ public:
    
    template <typename option = opt::none>
    Tee add(const std::string& file) {
-      if constexpr(std::is_same_v<option, opt::a>) {
-         std::ofstream outfile(file, std::ios::out | std::ios::app);
-         if(outfile.is_open())
-            data->ofstreams.push_back(std::move(outfile));
-      } else {
-         std::ofstream outfile(file);
-         if(outfile.is_open())
-            data->ofstreams.push_back(std::move(outfile));
-      }
+      static_assert(std::is_same_v<option, opt::none>, "Unknown option passed to Tee");
+      
+      add_impl<option>(file);
+      
+      return *this;
+   }
+   
+   template <>
+   Tee add<opt::a>(const std::string& file) {
+      add_impl<opt::a>(file);
       
       return *this;
    }
    
    Tee add(std::ostream& stream) {
-      data->ostreams.push_back(std::ref(stream));
+      add_impl(stream);
       
       return *this;
    }
@@ -115,6 +116,28 @@ private:
       std::vector<std::reference_wrapper<std::ostream>> ostreams;
       std::vector<std::ofstream> ofstreams;
    };
+   
+   //
+   // Add impl
+   //
+   
+   template <typename option = opt::none>
+   void add_impl(const std::string& file) {
+      std::ofstream outfile(file);
+      if(outfile.is_open())
+         data->ofstreams.push_back(std::move(outfile));
+   }
+   
+   template <>
+   void add_impl<opt::a>(const std::string& file) {
+      std::ofstream outfile(file, std::ios::out | std::ios::app);
+      if(outfile.is_open())
+         data->ofstreams.push_back(std::move(outfile));
+   }
+   
+   void add_impl(std::ostream& stream) {
+      data->ostreams.push_back(std::ref(stream));
+   }
    
    //
    // Variables
