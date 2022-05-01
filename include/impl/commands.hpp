@@ -15,12 +15,12 @@ namespace pipe {
 // Cat command
 //
 
-// TODO: Add -s option that squeezes empty lines. This should probably get added as
-// a Pipe helper and then added to Builder as well.
-template <typename option = opt::none>
+template <typename ...Options>
 Pipe cat(std::initializer_list<std::string> filenames) {
-   using AllowedOptions = opt::list<opt::none, opt::n, opt::b>;
-   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to cat()");
+   using GivenOptions = opt::list<Options...>;
+   using AllowedOptions = opt::list<opt::s, opt::n, opt::b>;
+   static_assert(GivenOptions::empty() or AllowedOptions::contains_all<Options...>(),
+                 "Unknown option passed to cat()");
    if(filenames.size() == 0) return Builder().build();
    
    auto builder = Builder();
@@ -32,18 +32,28 @@ Pipe cat(std::initializer_list<std::string> filenames) {
          builder.append(file);
    }
    
-   if constexpr(std::is_same_v<option, opt::n>) {
-      builder.number_lines();
-   } else if constexpr(std::is_same_v<option, opt::b>) {
+   // Options -b and -n are both used to number lines but
+   // since -b is more specific (it only operates on non-blank lines
+   // it is given precedence here.
+   if constexpr(GivenOptions::template contains<opt::b>()) {
       builder.number_non_blank_lines();
+   } else if constexpr(GivenOptions::template contains<opt::n>()) {
+      builder.number_lines();
+   }
+   
+   // Option -s is for squeezing blank lines and doesn't work
+   // with -n because that numbers all the lines.
+   if constexpr(not GivenOptions::template contains<opt::n>()
+                and GivenOptions::template contains<opt::s>()) {
+      builder.squeeze_blank_lines();
    }
    
    return builder.build();
 }
 
-template <typename option = opt::none>
+template <typename ...Options>
 Pipe cat(const std::string& filename) {
-   return cat<option>(std::initializer_list<std::string>{filename});
+   return cat<Options...>(std::initializer_list<std::string>{filename});
 }
 
 //

@@ -183,6 +183,8 @@ private:
    void number_lines();
    // Number all non blank lines in lines vector.
    void number_non_blank_lines();
+   // Squeeze consecutive blank lines down to one.
+   void squeeze_blank_lines();
    // Return total number of chars in all lines.
    size_t char_count() const;
    // Merge two sorted Pipes.
@@ -678,8 +680,10 @@ Pipe& Pipe::uniq<opt::u>() {
 
 void Pipe::append(std::istream& in) {
    std::string buffer;
+   
    while(std::getline(in, buffer)) {
       lines.push_back(std::move(buffer));
+      if(in.peek() == '\r') in.ignore();
    }
 }
 
@@ -701,16 +705,19 @@ void Pipe::number_non_blank_lines() {
    const short width = detail::count_digits(lines.size());
    size_t i = 1;
    
-   const auto blank_indent = std::string(width + 1, ' ');
-   
    for(auto& line : lines) {
       if(not line.empty()) {
          line.insert(0, detail::pad_left(i, width) + " ");
-      } else {
-         line.insert(0, blank_indent);
+         ++i;
       }
-      ++i;
    }
+}
+
+void Pipe::squeeze_blank_lines() {
+   const auto consecutive_blank_lines = [](const auto& a, const auto& b){ return a.empty() and b.empty(); };
+   
+   const auto last = std::unique(lines.begin(), lines.end(), consecutive_blank_lines);
+   lines.erase(last, lines.end());
 }
 
 size_t Pipe::char_count() const {

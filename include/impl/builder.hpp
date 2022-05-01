@@ -33,6 +33,8 @@ public:
    
    void number_non_blank_lines();
    
+   void squeeze_blank_lines();
+   
    Pipe build();
    
 private:
@@ -49,6 +51,10 @@ void Builder::number_lines() {
 
 void Builder::number_non_blank_lines() {
    pipe.number_non_blank_lines();
+}
+
+void Builder::squeeze_blank_lines() {
+   pipe.squeeze_blank_lines();
 }
 
 Pipe Builder::build() {
