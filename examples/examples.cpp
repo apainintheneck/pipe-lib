@@ -1,7 +1,7 @@
 //
 // Examples for pipe-lib
 //
-#include "../include/pipe-lib.hpp"
+#include "../include/pipe-lib/pipe-lib.hpp"
 #include <iostream>
 
 int main(int argc, const char * argv[]) {

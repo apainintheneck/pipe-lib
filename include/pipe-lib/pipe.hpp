@@ -15,8 +15,9 @@
 #include "output.hpp"
 
 //
-// The base class for all the following pipe classes.
+// The basic class Pipe class.
 //
+
 namespace pipe {
 
 class Pipe {
@@ -381,6 +382,8 @@ Pipe& Pipe::head<opt::c>(const size_t count) {
 // Paste
 //
 
+// TODO: Add the ability to paste multiple files at the same time.
+
 Pipe& Pipe::paste(const Pipe& pipe) {
    return this->paste<opt::d>("\t", pipe);
 }
@@ -683,6 +686,8 @@ void Pipe::append(std::istream& in) {
    
    while(std::getline(in, buffer)) {
       lines.push_back(std::move(buffer));
+      // Ignore trailing carriage return after a newline.
+      //    Ex. "\n\r"
       if(in.peek() == '\r') in.ignore();
    }
 }
