@@ -256,10 +256,11 @@ void Pipe::operator|(Tee& tee) {
 
 template <typename ...Options>
 Pipe& Pipe::fold(const size_t len) {
-   using AllowedOptions = opt::list<opt::w, opt::s, opt::none>;
-   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.fold()");
-   using GivenOptions = opt::list<Options...>;
-   static_assert(AllowedOptions::contains<opt::w>(), "Missing option -w with call to Pipe.fold() with custom length");
+   using OptionList = opt::list<Options...>;
+   static_assert(OptionList::template allows<opt::w, opt::s, opt::none>(),
+                 "Unknown option passed to Pipe.fold()");
+   static_assert(OptionList::template requires<opt::w>(),
+                 "Missing required option -w with call to Pipe.fold() with custom length");
    
    size_t end;
    std::vector<std::string> new_lines;
@@ -272,7 +273,7 @@ Pipe& Pipe::fold(const size_t len) {
          size_t start = 0;
          
          while(start < line.size()) {
-            if constexpr(GivenOptions::template contains<opt::s>()) {
+            if constexpr(OptionList::template contains<opt::s>()) {
                end = detail::line_len_with_end_blank(line.cbegin(), line.cend(), len);
             } else {
                end = detail::line_len(line.cbegin(), line.cend(), len);
@@ -292,7 +293,8 @@ Pipe& Pipe::fold(const size_t len) {
 template <typename option = opt::none>
 Pipe& Pipe::fold() {
    using AllowedOptions = opt::list<opt::none, opt::s>;
-   static_assert(AllowedOptions::contains<option>(), "Unknown option passed to Pipe.fold()");
+   static_assert(AllowedOptions::contains<option>(),
+                 "Unknown option passed to Pipe.fold()");
    
    return this->fold<opt::w, option>(80);
 }
@@ -303,20 +305,20 @@ Pipe& Pipe::fold() {
 
 template <typename ...Options>
 Pipe& Pipe::grep(const std::string& pattern) {
-   using AllowedOptions = opt::list<opt::i, opt::E>;
-   static_assert(AllowedOptions::template contains_all<Options...>(), "Unknown option passed to Pipe.grep()");
-   using GivenOptions = opt::list<Options...>;
+   using OptionList = opt::list<Options...>;
+   static_assert(OptionList::template allows<opt::i, opt::E>(),
+                 "Unknown option passed to Pipe.grep()");
    
    std::regex regex;
    
-   if constexpr(GivenOptions::template contains<opt::i>()) {
-      if constexpr(GivenOptions::template contains<opt::E>()) {
+   if constexpr(OptionList::template contains<opt::i>()) {
+      if constexpr(OptionList::template contains<opt::E>()) {
          regex = std::regex(pattern, std::regex::egrep | std::regex::icase);
       } else {
          regex = std::regex(pattern, std::regex::grep | std::regex::icase);
       }
    } else {
-      if constexpr(GivenOptions::template contains<opt::E>()) {
+      if constexpr(OptionList::template contains<opt::E>()) {
          regex = std::regex(pattern, std::regex::egrep);
       } else {
          regex = std::regex(pattern, std::regex::grep);
@@ -390,7 +392,8 @@ Pipe& Pipe::paste(const Pipe& pipe) {
 
 template <typename option>
 Pipe& Pipe::paste(const std::string& separators, const Pipe& other) {
-   static_assert(std::is_same_v<option, opt::d>, "Unknown option passed to Pipe.paste()");
+   static_assert(std::is_same_v<option, opt::d>,
+                 "Unknown option passed to Pipe.paste()");
    
    size_t line_num = 0;
    for(const auto& new_line : other.lines) {
@@ -415,17 +418,17 @@ Pipe& Pipe::paste(const std::string& separators, const Pipe& other) {
 
 template <typename ...Options>
 Pipe& Pipe::sort() {
-   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::r, opt::s, opt::u>;
-   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
-   using GivenOptions = opt::list<Options...>;
+   using OptionList = opt::list<Options...>;
+   static_assert(OptionList::template allows<opt::b, opt::d, opt::f, opt::r, opt::s, opt::u>(),
+                 "Unknown option passed to Pipe.sort()");
    
-   if constexpr(GivenOptions::template contains<opt::s>()) {
+   if constexpr(OptionList::template contains<opt::s>()) {
       std::stable_sort(lines.begin(), lines.end(), sort_cmp<Options...>());
    } else {
       std::sort(lines.begin(), lines.end(), sort_cmp<Options...>());
    }
    
-   if constexpr(GivenOptions::template contains<opt::u>()) {
+   if constexpr(OptionList::template contains<opt::u>()) {
       auto last = std::unique(lines.begin(), lines.end());
       lines.erase(last, lines.end());
    }
@@ -436,14 +439,15 @@ Pipe& Pipe::sort() {
 // Implementation of the merge option (-m)
 template <typename ...Options>
 Pipe& Pipe::sort(const Pipe& other) {
-   using AllowedOptions = opt::list<opt::b, opt::d, opt::f, opt::m, opt::r, opt::s, opt::u>;
-   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option passed to Pipe.sort()");
-   using GivenOptions = opt::list<Options...>;
-   static_assert(GivenOptions::template contains<opt::m>(), "Missing option -m with call to Pipe.sort() merge method");
+   using OptionList = opt::list<Options...>;
+   static_assert(OptionList::template requires<opt::m>(),
+                 "Missing option -m with call to Pipe.sort() merge method");
+   static_assert(OptionList::template allows<opt::b, opt::d, opt::f, opt::m, opt::r, opt::s, opt::u>(),
+                 "Unknown option passed to Pipe.sort()");
    
    std::swap(lines, merge(this, other, sort_cmp<Options...>()));
    
-   if constexpr(GivenOptions::template contains<opt::u>()) {
+   if constexpr(OptionList::template contains<opt::u>()) {
       auto last = std::unique(lines.begin(), lines.end());
       lines.erase(last, lines.end());
    }
@@ -535,20 +539,20 @@ Pipe& Pipe::tr(const std::string& pattern1, const std::string& pattern2) {
 
 template <typename ...Options>
 Pipe& Pipe::tr(const std::string& pattern) {
-   using RequiredOptions = opt::list<opt::d, opt::s>;
-   static_assert(RequiredOptions::contains_any<Options...>(), "Pipe.tr() missing required option -d or -s");
-   using AllowedOptions = opt::list<opt::d, opt::s, opt::c>;
-   static_assert(AllowedOptions::contains_all<Options...>(), "Unknown option given to Pipe.tr()");
-   using GivenOptions = opt::list<Options...>;
+   using OptionList = opt::list<Options...>;
+   static_assert(OptionList::template allows<opt::d, opt::s, opt::c>(),
+                 "Unknown option given to Pipe.tr()");
+   static_assert(OptionList::template requires<opt::d, opt::s>(1),
+                 "Pipe.tr() missing required option -d or -s");
    
    auto expanded_pattern = detail::expand_tr_pattern(pattern);
    
-   if constexpr(GivenOptions::template contains<opt::d>()) {
+   if constexpr(OptionList::template contains<opt::d>()) {
       std::function<bool(char)> match_pattern = [&expanded_pattern](char ch){
          return expanded_pattern.find(ch) != std::string::npos;
       };
       
-      if constexpr(GivenOptions::template contains<opt::c>()) {
+      if constexpr(OptionList::template contains<opt::c>()) {
          match_pattern = std::not_fn(match_pattern);
       }
       
@@ -561,7 +565,7 @@ Pipe& Pipe::tr(const std::string& pattern) {
          return first == second and expanded_pattern.find(first) != std::string::npos;
       };
       
-      if constexpr(GivenOptions::template contains<opt::c>()) {
+      if constexpr(OptionList::template contains<opt::c>()) {
          is_same_and_match = std::not_fn(is_same_and_match);
       }
       
@@ -743,11 +747,11 @@ std::vector<std::string> Pipe::merge(const Pipe& p1, const Pipe& p2, StringCmp c
 
 template <typename ...Options>
 Pipe::StringCmp Pipe::sort_cmp() {
-   using GivenOptions = opt::list<Options...>;
+   using OptionList = opt::list<Options...>;
    
    Pipe::StringCmp cmp;
    
-   if constexpr(GivenOptions::template contains_all<opt::d, opt::f>()) {
+   if constexpr(OptionList::template contains<opt::d, opt::f>()) {
       // Case insensitive dictionary compare (only compare uppercase alnum characters or blank spaces)
       cmp = [](const std::string_view lhs, const std::string_view rhs) {
          auto lhs_it = lhs.begin();
@@ -777,7 +781,7 @@ Pipe::StringCmp Pipe::sort_cmp() {
             return std::toupper(*lhs_it) < std::toupper(*rhs_it);
          }
       };
-   } else if constexpr(GivenOptions::template contains<opt::d>()) {
+   } else if constexpr(OptionList::template contains<opt::d>()) {
       // Dictionary order compare (only compare blank spaces and alnum characters)
       cmp = [](const std::string_view lhs, const std::string_view rhs) {
          auto lhs_it = lhs.begin();
@@ -805,7 +809,7 @@ Pipe::StringCmp Pipe::sort_cmp() {
             return *lhs_it < *rhs_it;
          }
       };
-   } else if constexpr(GivenOptions::template contains<opt::f>()) {
+   } else if constexpr(OptionList::template contains<opt::f>()) {
       // Case insensitive compare (everything converted to uppercase)
       cmp = [](const std::string_view lhs, const std::string_view rhs) {
          auto lhs_it = lhs.begin();
@@ -829,14 +833,14 @@ Pipe::StringCmp Pipe::sort_cmp() {
       cmp = std::less<const std::string_view>();
    }
    
-   if constexpr(GivenOptions::template contains<opt::b>()) {
+   if constexpr(OptionList::template contains<opt::b>()) {
       // Skip leading whitespace before comparing
       cmp = [cmp](const std::string_view lhs, const std::string_view rhs) {
          return cmp(detail::skip_whitespace(lhs), detail::skip_whitespace(rhs));
       };
    }
    
-   if constexpr(GivenOptions::template contains<opt::r>()) {
+   if constexpr(OptionList::template contains<opt::r>()) {
       // Sort in reverse order (negate the compare function)
       cmp = std::not_fn(cmp);
    }

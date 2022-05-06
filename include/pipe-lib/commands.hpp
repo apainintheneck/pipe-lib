@@ -17,10 +17,9 @@ namespace pipe {
 
 template <typename ...Options>
 Pipe cat(std::initializer_list<std::string_view> filenames) {
-   using GivenOptions = opt::list<Options...>;
-   using AllowedOptions = opt::list<opt::s, opt::n, opt::b>;
-   static_assert(GivenOptions::empty() or AllowedOptions::contains_all<Options...>(),
-                 "Unknown option passed to cat()");
+   using OptionList = opt::list<Options...>;
+   static_assert(OptionList::template allows<opt::s, opt::n, opt::b>(),
+                 "Unknown option(s) passed to cat()");
    if(filenames.size() == 0) return Builder().build();
    
    auto builder = Builder();
@@ -35,16 +34,16 @@ Pipe cat(std::initializer_list<std::string_view> filenames) {
    // Options -b and -n are both used to number lines but
    // since -b is more specific (it only operates on non-blank lines
    // it is given precedence here.
-   if constexpr(GivenOptions::template contains<opt::b>()) {
+   if constexpr(OptionList::template contains<opt::b>()) {
       builder.number_non_blank_lines();
-   } else if constexpr(GivenOptions::template contains<opt::n>()) {
+   } else if constexpr(OptionList::template contains<opt::n>()) {
       builder.number_lines();
    }
    
    // Option -s is for squeezing blank lines and doesn't work
    // with -n because that numbers all the lines.
-   if constexpr(not GivenOptions::template contains<opt::n>()
-                and GivenOptions::template contains<opt::s>()) {
+   if constexpr(not OptionList::template contains<opt::n>()
+                and OptionList::template contains<opt::s>()) {
       builder.squeeze_blank_lines();
    }
    
@@ -63,7 +62,7 @@ Pipe cat(std::string_view filename) {
 Pipe echo(std::initializer_list<std::reference_wrapper<const std::string>> strs) {
    if(strs.size() == 0) return Builder().build();
    
-   const auto concat_with_space = [](const std::string a, std::reference_wrapper<const std::string> b) { return a + " " + b.get(); };
+   const auto concat_with_space = [](const std::string& a, std::reference_wrapper<const std::string>& b) { return a + " " + b.get(); };
    auto concat_strs = std::accumulate(strs.begin() + 1, strs.end(), strs.begin()->get(), concat_with_space);
    std::istringstream input(concat_strs);
    

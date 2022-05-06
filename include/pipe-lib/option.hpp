@@ -32,14 +32,15 @@ struct list {
       return (std::is_same_v<Option, OptionsList> or ...);
    }
    
-   template <typename ...OptionsToTest>
-   static constexpr bool contains_all() {
-      return (contains<OptionsToTest>() and ...);
+   template <typename ...AllowedOptions>
+   static constexpr bool allows() {
+      using AllowedOptionList = opt::list<AllowedOptions...>;
+      return (AllowedOptionList::template contains<OptionsList>() and ...);
    }
    
-   template <typename ...OptionsToTest>
-   static constexpr bool contains_any() {
-      return (contains<OptionsToTest>() or ...);
+   template <typename ...RequiredOptions>
+   static constexpr bool requires(size_t min = sizeof...(RequiredOptions)) {
+      return (contains<RequiredOptions>() + ...) >= min;
    }
    
    static constexpr bool empty() {
