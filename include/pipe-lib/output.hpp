@@ -22,10 +22,10 @@ namespace pipe {
 // by mimicking shell syntax with > and >>.
 //
 // It can be used to output to a new file or overwrite an existing one.
-// Ex. sh::Pipe(is) > sh::File("example.txt");
+// Ex. sh::stream(istream) > sh::File("example.txt");
 //
 // Or just append to the end of an existing file.
-// Ex. sh::Pipe(is) >> sh::File("example.txt");
+// Ex. sh::stream(istream) >> sh::File("example.txt");
 class File {
 public:
    File(const std::string& filename) : _filename(filename) {}
@@ -45,12 +45,12 @@ public:
 // writing or appending to files and mimicking shell syntax with |.
 //
 // It can be used with one file and an outuput stream (the default is std::cout).
-// Ex. sh::Pipe(is) | sh::Tee("example.txt"); // Overwrite example
-// Ex. sh::Pipe(is) | sh::Tee("example.txt"); // Explicit ostream example
-// Ex. sh::Pipe(is) | sh::Tee<opt::a>("example.txt"); // Append example
+// Ex. sh::stream(istream) | sh::Tee("example.txt"); // Overwrite example
+// Ex. sh::stream(istream) | sh::Tee("example.txt"); // Explicit ostream example
+// Ex. sh::stream(istream) | sh::Tee<opt::a>("example.txt"); // Append example
 //
 // Or with multiple files at once.
-// Ex. sh::Pipe(is) | sh::Tee("example.txt").add(std::cout).add("another.txt");
+// Ex. sh::stream(istream) | sh::Tee("example.txt").add(std::cout).add("another.txt");
 class Tee {
 public:
    template <typename option = opt::none>

@@ -25,11 +25,11 @@ class u {};
 class w {};
 
 // A helper that takes a list of options types and validates them.
-template <typename ...Options>
+template <typename ...OptionsList>
 struct list {
-   template <typename option>
+   template <typename Option>
    static constexpr bool contains() {
-      return (std::is_same_v<option, Options> or ...);
+      return (std::is_same_v<Option, OptionsList> or ...);
    }
    
    template <typename ...OptionsToTest>
@@ -43,7 +43,7 @@ struct list {
    }
    
    static constexpr bool empty() {
-      return sizeof...(Options) == 0;
+      return sizeof...(OptionsList) == 0;
    }
 };
 

@@ -22,7 +22,11 @@ int main(int argc, const char * argv[]) {
 
    std::cout << '\n';
 
+   pipe::echo({"Hello", "world!"}) | std::cout;
+   
+   std::cout << '\n';
+
    std::istringstream in1("hel&&lo\n&&&HELLO\n&&&HELLO\nhell&&&o\nzorld\n&&world\nWorld");
    std::istringstream in2("next");
-   pipe::stream(in1, in2).uniq().tr("[:lower:]", "[:upper:]") | std::cout;
+   pipe::stream({in1, in2}).uniq().tr("[:lower:]", "[:upper:]") | std::cout;
 }

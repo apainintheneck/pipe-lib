@@ -16,7 +16,7 @@ namespace pipe {
 //
 
 template <typename ...Options>
-Pipe cat(std::initializer_list<std::string> filenames) {
+Pipe cat(std::initializer_list<std::string_view> filenames) {
    using GivenOptions = opt::list<Options...>;
    using AllowedOptions = opt::list<opt::s, opt::n, opt::b>;
    static_assert(GivenOptions::empty() or AllowedOptions::contains_all<Options...>(),
@@ -25,7 +25,7 @@ Pipe cat(std::initializer_list<std::string> filenames) {
    
    auto builder = Builder();
    
-   for(const auto& filename : filenames) {
+   for(auto& filename : filenames) {
       std::ifstream file(filename);
       
       if(file.is_open())
@@ -52,19 +52,19 @@ Pipe cat(std::initializer_list<std::string> filenames) {
 }
 
 template <typename ...Options>
-Pipe cat(const std::string& filename) {
-   return cat<Options...>(std::initializer_list<std::string>{filename});
+Pipe cat(std::string_view filename) {
+   return cat<Options...>({filename});
 }
 
 //
 // Echo command
 //
 
-Pipe echo(std::initializer_list<std::string> strs) {
+Pipe echo(std::initializer_list<std::reference_wrapper<const std::string>> strs) {
    if(strs.size() == 0) return Builder().build();
    
-   const auto concat_with_space = [](std::string a, std::string b) { return a + "" + b; };
-   auto concat_strs = std::accumulate(strs.begin() + 1, strs.end(), *strs.begin(), concat_with_space);
+   const auto concat_with_space = [](const std::string a, std::reference_wrapper<const std::string> b) { return a + " " + b.get(); };
+   auto concat_strs = std::accumulate(strs.begin() + 1, strs.end(), strs.begin()->get(), concat_with_space);
    std::istringstream input(concat_strs);
    
    auto builder = Builder();
@@ -73,19 +73,25 @@ Pipe echo(std::initializer_list<std::string> strs) {
 }
 
 Pipe echo(const std::string& str) {
-   return echo(std::initializer_list<std::string>{str});
+   return echo({std::cref(str)});
 }
 
 //
 // Stream command
 //
-template <typename ...IStream>
-Pipe stream(IStream& ...inputs) {
-   static_assert((std::is_base_of_v<std::istream, IStream> and ...), "Unknown parameters passed to stream()");
-   
+
+Pipe stream(std::initializer_list<std::reference_wrapper<std::istream>> inputs) {
    auto builder = Builder();
-   ((builder.append(inputs)), ...);
+   
+   for(auto& input : inputs) {
+      builder.append(input.get());
+   }
+   
    return builder.build();
+}
+
+Pipe stream(std::istream& input) {
+   return stream({std::ref(input)});
 }
 
 } //namespace pipe

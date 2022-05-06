@@ -31,3 +31,4 @@ While awk and sed options exist in the std::regex library they don't behave the 
 - join
 - paste
 - Update current commands and add additional options
+- combine cat and stream commands because they essentially do the same thing
