@@ -62,7 +62,7 @@ Pipe cat(std::string_view filename) {
 Pipe echo(std::initializer_list<std::reference_wrapper<const std::string>> strs) {
    if(strs.size() == 0) return Builder().build();
    
-   const auto concat_with_space = [](const std::string& a, std::reference_wrapper<const std::string>& b) { return a + " " + b.get(); };
+   const auto concat_with_space = [](const auto& a, const auto& b) { return a + " " + b.get(); };
    auto concat_strs = std::accumulate(strs.begin() + 1, strs.end(), strs.begin()->get(), concat_with_space);
    std::istringstream input(concat_strs);
    

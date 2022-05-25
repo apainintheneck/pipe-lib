@@ -4,10 +4,11 @@
 #include <string>
 #include <string_view>
 
-//
-// General string processing utilities stuffed into the detail namespace.
-//
 namespace pipe::detail {
+
+//
+// Generic Algorithms
+//
 
 template <typename iter>
 iter find_next_diff(iter begin, iter end) {
@@ -20,21 +21,29 @@ iter find_next_diff(iter begin, iter end) {
    return begin;
 }
 
-std::string pad_left(std::string&& str, const size_t width) {
-   return str.size() < width
-      ? std::string(width - str.size(), ' ') + str
-      : str;
-}
+//
+// Math
+//
 
 unsigned short count_digits(size_t num) {
    unsigned short count = 0;
    
    while(num > 0) {
+      num &= num - 1;
       ++count;
-      num /= 10;
    }
    
    return count;
+}
+
+//
+// Strings
+//
+
+std::string pad_left(std::string&& str, const size_t width) {
+   return str.size() < width
+      ? std::string(width - str.size(), ' ') + str
+      : str;
 }
 
 template <typename T>
@@ -69,6 +78,10 @@ size_t line_len_with_end_blank(std::string::const_iterator begin, std::string::c
    }
    return last_blank;
 }
+
+//
+// Character classes
+//
 
 namespace char_class {
 // These are used to mimic GNU character classes as described here:
@@ -178,40 +191,43 @@ std::string expand_tr_pattern(const std::string& str) {
 }
 
 //
-//template <typename iter>
-//iter consume_whitespace(iter begin, iter end) {
-//   while(begin != end && std::isspace(*begin))
-//      ++begin;
+// Fields
 //
-//   return begin;
-//}
-//
-//template <typename iter>
-//iter consume_field(iter begin, iter end) {
-//   while(begin != end && !std::isspace(*begin))
-//      ++begin;
-//
-//   return begin;
-//}
-//
-//template <typename iter>
-//std::string_view get_field(iter begin, iter end) {
-//   return std::string_view(begin, consume_field(begin, end));
-//}
-//
-//std::string_view skip_n_fields(const std::string_view str, size_t n) {
-//   auto iter = str.begin();
-//   while(iter != str.end() and n > 0) {
-//      iter = consume_whitespace(iter, str.end());
-//      iter = consume_field(iter, str.end());
-//      --n;
-//   }
-//
-//   return str.substr(std::distance(str.begin(), iter));
-//}
-//
-//std::string_view skip_n_chars(const std::string_view str, const size_t n) {
-//   return str.substr(n);
-//}
+
+template <typename iter>
+iter consume_whitespace(iter begin, iter end) {
+   while(begin != end && std::isspace(*begin))
+      ++begin;
+
+   return begin;
+}
+
+template <typename iter>
+iter consume_field(iter begin, iter end) {
+   while(begin != end && !std::isspace(*begin))
+      ++begin;
+
+   return begin;
+}
+
+template <typename iter>
+std::string_view get_field(iter begin, iter end) {
+   return std::string_view(begin, consume_field(begin, end));
+}
+
+std::string_view skip_n_fields(const std::string_view str, size_t n) {
+   auto iter = str.begin();
+   while(iter != str.end() and n > 0) {
+      iter = consume_whitespace(iter, str.end());
+      iter = consume_field(iter, str.end());
+      --n;
+   }
+
+   return str.substr(std::distance(str.begin(), iter));
+}
+
+std::string_view skip_n_chars(const std::string_view str, const size_t n) {
+   return str.substr(n);
+}
 
 } // namespace pipe::detail
